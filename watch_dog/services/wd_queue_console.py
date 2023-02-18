@@ -1,0 +1,94 @@
+import atexit
+from typing import *
+import multiprocessing as mp
+from threading import Thread
+
+from cv2 import cv2
+
+from watch_dog.utils.util_process import MultiShardObject
+from watch_dog.utils.util_queue import FastQueue, clear_queue_cache
+from watch_dog.utils.util_camera import MultiprocessCamera
+from watch_dog.utils.util_queue_console import QueueConsole
+from watch_dog.models.multi_objects.task_info import TaskInfo
+from watch_dog.models.worker_req import WorkerEndReq, WorkerStartReq, \
+    VidRecStartReq
+
+if TYPE_CHECKING:
+    from watch_dog.utils.util_process import MultiShardObject
+
+
+class QueueBox(object):
+    pass
+
+
+class WdQueueConsole(QueueConsole):
+
+    def __init__(self, camera: "MultiprocessCamera",
+                 global_worker_task: Optional["MultiShardObject"] = None,
+                 console_id: str = "", detect_worker_num=1):
+        if global_worker_task is None:
+            global_worker_task = MultiShardObject(TaskInfo(task_name=""))
+        super().__init__(global_worker_task=global_worker_task,
+                         console_id=console_id)
+
+        self.detect_worker_num = mp.Value("i", int(detect_worker_num))
+
+        # 相机对象
+        self.camera = camera
+
+        # 用于存放已标注/渲染后的帧
+        self.render_frame_queue = FastQueue(10, name="render_frame_queue")
+
+        # 存放检测数据，用于 landmark
+        self.detect_infos_queue = FastQueue(360, name="detect_infos_queue")
+
+        # 同样存放检测数据，用于监控器分析
+        self.detect_infos_sense_queue = FastQueue(
+            360, name="detect_infos_sense_queue")
+
+        # 用于标注的帧
+        self.frame4mark_queue = FastQueue(360, name="frame4mark_queue")
+
+        # 用于常规检测的帧传输
+        self.frame4common_detect_queue = FastQueue(
+            360, name="frame4common_detect_queue")
+
+        # 用于视频录制
+        self.frame4record_queue = FastQueue(60, name="record_frame_queue")
+
+        self.recorder_req_queue = FastQueue(name="record_frame_queue")
+
+    def start_vid_record(self, tag):
+        print("开始录制")
+        self.recorder_req_queue.put(VidRecStartReq(tag=tag))
+
+    def stop_vid_record(self):
+        print("结束录制")
+        self.recorder_req_queue.put(WorkerEndReq())
+
+    @classmethod
+    def init_default(cls, console_id="console_id", camera_address=None,
+                     fps=30, video_width=1920,
+                     video_height=1080,
+                     detect_worker_num=1) -> "WdQueueConsole":
+        if camera_address is None:
+            camera_address = 0
+
+        set_params = {
+            cv2.CAP_PROP_FOURCC: cv2.VideoWriter_fourcc(*"MJPG"),
+            cv2.CAP_PROP_FRAME_WIDTH: video_width,
+            cv2.CAP_PROP_FRAME_HEIGHT: video_height,
+            cv2.CAP_PROP_FPS: fps,
+            cv2.CAP_PROP_AUTO_EXPOSURE: 3,  # 曝光模式设置， 1：手动； 3: 自动
+            cv2.CAP_PROP_EXPOSURE: 25,  # 曝光为手动模式时设置的曝光值， 若为自动，则这个值无效
+        }
+        test_camera = MultiprocessCamera(camera_address, set_params=set_params)
+        test_camera.start()
+        print(f"inited default q_console")
+        return WdQueueConsole(camera=test_camera,
+                              detect_worker_num=detect_worker_num)
+
+
+if __name__ == "__main__":
+    _global_worker_task = MultiShardObject(TaskInfo(task_name=""))
+    q_console = WdQueueConsole(global_worker_task=_global_worker_task)
