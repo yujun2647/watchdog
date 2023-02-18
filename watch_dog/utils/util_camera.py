@@ -866,8 +866,8 @@ class MultiprocessCamera(object):
             self.view_worker.daemon = False
             self.view_worker.start()
 
-        # if self.audio_worker is None:
-        #     self.audio_worker = self._init_audio_worker()
+        if self.audio_worker is None:
+            self.audio_worker = self._init_audio_worker()
 
     def close(self):
         if self.view_worker:
