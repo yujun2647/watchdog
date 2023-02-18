@@ -20,8 +20,8 @@ if __name__ == "__main__":
 
     set_scripts_logging(__file__)
 
-    camera_address = "rtsp://admin:huang7758258@192.168.3.230:554/h265/ch1/main/av_stream"
     camera_address = 0
+    camera_address = "rtsp://admin:huang7758258@192.168.3.230:554/h265/ch1/main/av_stream"
     q_console = WdQueueConsole.init_default(camera_address=camera_address,
                                             fps=1, detect_worker_num=1)
 

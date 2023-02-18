@@ -13,7 +13,7 @@ DIR_PATH = os.path.dirname(__file__)
 
 class YoloDetector(object):
     DEFAULT_MODEL_DATA_PATH = os.path.join(
-        DIR_PATH, "real_time_object_detection_cpu/model_data")
+        DIR_PATH, "object_detect/model_data")
     DEFAULT_CONFIG_PATH = os.path.join(
         DEFAULT_MODEL_DATA_PATH,
         "ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt")

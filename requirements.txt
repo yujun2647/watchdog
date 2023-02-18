@@ -1,6 +1,8 @@
 flask
-opencv-contrib-python==4.5.1.48
-av==8.1.0
+#opencv-contrib-python==4.5.1.48
+opencv-contrib-python
+#av==8.1.0
+av
 psutil
 hikvisionapi
 tqdm
