@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import os
 
 from setuptools import setup
 from watch_dog import __version__
@@ -13,6 +14,30 @@ def _get_requires(filename):
         return [l.replace("\n", "") for l in lines if not l.startswith("#")]
 
 
+def walk_package(package):
+    packages = []
+    package_data = {}
+    for name, folders, files in os.walk(package):
+        folders = [f for f in folders if not f.startswith("__")]
+        files = [f for f in files if not f.endswith(".pyc")]
+        if "__init__.py" in files:
+            packages.append(name)
+            for folder in folders:
+                sub_name = os.path.join(name, folder)
+                _packages, _package_data = walk_package(sub_name)
+                packages.extend(_packages)
+                package_data.update(_package_data)
+        else:
+            if folders or files:
+                package_data.setdefault(name, [])
+            for folder in folders:
+                package_data[name].append(f"{folder}/*")
+            for file in files:
+                package_data[name].append(file)
+    return packages, package_data
+
+
+all_packages, all_package_data = walk_package("watch_dog")
 INSTALL_REQUIRES = _get_requires("requirements.txt")
 
 setup(
@@ -30,6 +55,7 @@ setup(
             "watchdog=watch_dog.watch:main",
         ],
     },
-    packages=["watch_dog"],
+    packages=all_packages,
+    package_data=all_package_data,
     long_description=README,
 )
