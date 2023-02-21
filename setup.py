@@ -16,7 +16,6 @@ def _get_requires(filename):
 
 def walk_package(package):
     packages = []
-    package_data = {}
     for name, folders, files in os.walk(package):
         folders = [f for f in folders if not f.startswith("__")]
         files = [f for f in files if not f.endswith(".pyc")]
@@ -26,18 +25,11 @@ def walk_package(package):
                 sub_name = os.path.join(name, folder)
                 _packages, _package_data = walk_package(sub_name)
                 packages.extend(_packages)
-                package_data.update(_package_data)
-        else:
-            if folders or files:
-                package_data.setdefault(name, [])
-            for folder in folders:
-                package_data[name].append(f"{folder}/*")
-            for file in files:
-                package_data[name].append(file)
-    return packages, package_data
+
+    return packages
 
 
-all_packages, all_package_data = walk_package("watch_dog")
+all_packages = walk_package("watch_dog")
 INSTALL_REQUIRES = _get_requires("requirements.txt")
 
 setup(
@@ -56,6 +48,11 @@ setup(
         ],
     },
     packages=all_packages,
-    package_data=all_package_data,
+    package_data={
+        "watch_dog": [
+            "ai/object_detect/model_data/*",
+            "static/*",
+        ]
+    },
     long_description=README,
 )
