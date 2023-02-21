@@ -9,30 +9,15 @@ class RTSPCapture(object):
     def __init__(self, rtsp_path: str):
         self.__rtsp_path = rtsp_path
 
-        # other_options = {
-        #     'rtsp_transport': "tcp",
-        #     #'fflags': 'nobuffer',
-        #     #'flags': 'low_delay',
-        #     #'strict': 'experimental',
-        # }
         other_options = {'buffer_size': '1024000',
                          'rtsp_transport': 'tcp',
                          'stimeout': '20000000',
                          'max_delay': '200000'
                          }
-
-        # self._container = av.open(self.__rtsp_path, 'r',
-        #                           options=other_options)
         self._container = av.open(self.__rtsp_path, 'r',
                                   format=None, options=other_options,
                                   metadata_errors="nostrict")
 
-        # dicOption = {'buffer_size': '1024000', 'rtsp_transport': 'tcp',
-        #              'stimeout': '20000000', 'max_delay': '200000'}
-        # video = av.open("rtsp://viewer:vieweradmin@192.16.5.69:80/1", 'r',
-        #                 format=None, options=dicOption,
-        #                 metadata_errors='nostrict')
-        # try:
         self.stream = self._container.streams.video[0]
 
         self._is_opened = mp.Value("d", 0)
@@ -134,6 +119,7 @@ class RTSPCapture(object):
 
 
 if __name__ == "__main__":
+    import time
     from watch_dog.utils.util_log import set_scripts_logging
 
     set_scripts_logging(__file__)

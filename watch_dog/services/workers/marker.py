@@ -6,7 +6,7 @@ from typing import *
 from threading import Thread
 
 import numpy as np
-from cv2 import cv2
+import cv2
 
 from watch_dog.utils.util_log import time_cost_log
 from watch_dog.utils.util_camera import FrameBox
@@ -114,7 +114,7 @@ class Marker(WDBaseWorker):
 
     def _handle_start_req(self, work_req: WorkerStartReq) -> bool:
         frame_box: FrameBox = self.get_queue_item(
-            self.q_console.frame4mark_queue, timeout=5)
+            self.q_console.frame4mark_queue, timeout=5, wait_item=True)
         if frame_box is None:
             return False
 
@@ -123,7 +123,9 @@ class Marker(WDBaseWorker):
 
         marked_frame = self._landmarks(frame_box.frame, d_infos)
         frame_box.update(marked_frame, is_marked=True)
-        self.d_infos_map.pop(frame_box.frame_id)
+
+        if frame_box.frame_id in self.d_infos_map:
+            self.d_infos_map.pop(frame_box.frame_id)
 
         frame_box.put_delay_text(tag="markA")
         # print(f"{len(self.d_infos_map)}")

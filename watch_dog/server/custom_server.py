@@ -1,6 +1,7 @@
 import logging
 import time
 import traceback
+from flask import Flask
 from queue import Queue, Empty
 from typing import Callable
 
@@ -9,6 +10,19 @@ from werkzeug.serving import (BaseWSGIServer,
                               ForkingWSGIServer, ThreadedWSGIServer)
 
 from watch_dog.utils.util_callable import get_callable_name
+
+
+class CustomFlask(Flask):
+    # 支持跨域
+    def make_default_options_response(self):
+        rsp = super().make_default_options_response()
+        # 允许 ajax 跨域请求
+        rsp.headers.update({
+            "Access-Control-Allow-Origin": "*",  # 设置允许跨域
+            "Access-Control-Allow-Methods": "GET, POST,OPTIONS",
+            "Access-Control-Allow-Headers": "X-Requested-With, Content-Type"
+        })
+        return rsp
 
 
 class ActionBox(object):
@@ -38,7 +52,7 @@ class ActionBox(object):
                      f"{self.action_name}, cost_time: {cost_time} s")
 
 
-class SportThreadedWSGIServer(ThreadedWSGIServer):
+class EnhanceThreadedWSGIServer(ThreadedWSGIServer):
     SERVICE_ACTION_QUEUE = Queue()
 
     def __init__(self, *args, **kwargs):
@@ -69,7 +83,7 @@ class SportThreadedWSGIServer(ThreadedWSGIServer):
             logging.warning(f"[Service_action] {action_box.action_name} "
                             f"not end in {timeout} second, pass")
 
-    def sport_service_actions(self):
+    def custom_service_actions(self):
         action_callback = None
         if self.SERVICE_ACTION_QUEUE.qsize() > 0:
             try:
@@ -91,7 +105,7 @@ class SportThreadedWSGIServer(ThreadedWSGIServer):
 
     def service_actions(self) -> None:
         try:
-            self.sport_service_actions()
+            self.custom_service_actions()
         except Exception as exp:
             logging.error(f"[Service_actions][execute failed]: {exp}, "
                           f"{traceback.format_exc()}")
@@ -115,7 +129,7 @@ def make_server(
         raise ValueError(
             "cannot have a multithreaded and multi process server.")
     elif threaded:
-        return SportThreadedWSGIServer(
+        return EnhanceThreadedWSGIServer(
             host, port, app, request_handler, passthrough_errors, ssl_context,
             fd=fd
         )

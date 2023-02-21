@@ -1,17 +1,16 @@
+import logging
 import os
 import time
 from typing import *
+from ctypes import *
 import multiprocessing as mp
 from threading import Thread, Event as TEvent
-from ctypes import create_string_buffer, cdll, byref, c_byte, pointer
-from tempfile import NamedTemporaryFile
 
 from watch_dog.libs.hc_net_sdk.HCNetSDK import (
     NET_DVR_LOCAL_SDK_PATH, NET_DVR_DEVICEINFO_V30, NET_DVR_COMPRESSION_AUDIO,
     NET_DVR_AUDIOENC_INFO, NET_DVR_AUDIOENC_PROCESS_PARAM
 )
 from watch_dog.utils.util_path import get_hc_sdk_lib_path
-from watch_dog.utils.util_audio import to_pcm_audio
 from watch_dog.utils.util_thread import new_thread
 
 
@@ -70,10 +69,6 @@ class HCHetSdk(object):
                              f"{self._hc_sdk.NET_DVR_GetLastError()}")
         self.voice_handler = voice_handler
 
-        # self._stop_history_heartbeat_thread()
-        # stop_event = TEvent()
-        # self._keep_heartbeats_async(stop_event)
-        # self._history_heartbeat_thread_stop_signal.append(stop_event)
         return voice_handler
 
     def _gen_one_encode_param(self) -> NET_DVR_AUDIOENC_PROCESS_PARAM:
@@ -169,6 +164,7 @@ class HCHetSdk(object):
         return audio_type_info
 
     def _init_encoder(self):
+
         audio_encode_info = NET_DVR_AUDIOENC_INFO()
         encoder = self._hc_sdk.NET_DVR_InitG711Encoder(
             byref(audio_encode_info))
@@ -186,11 +182,46 @@ class HCHetSdk(object):
                              f"{self._hc_sdk.NET_DVR_GetLastError()}")
         return decoder
 
+    @CFUNCTYPE(c_bool, c_void_p, c_int, POINTER(c_char * 160), c_int, c_byte,
+               c_void_p)
+    def record_voice(self, lVoiceComHandle, pRecvDataBuffer, dwBufSize,
+                     byAudioFlag, pUser):
+        pass
+
+    def __enter__(self):
+        self._init_sdk()
+        self._login_user_id, self._device_info = self._login()
+        self._encoder = self._init_encoder()
+        self._decoder = self._init_decoder()
+        self._audio_type_info = self._get_device_audio_type_info()
+        self.init_voice_handler(self.record_voice)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.release()
+
+    def stop_voice(self):
+        r = self._hc_sdk.NET_DVR_ReleaseG711Encoder(self._encoder)
+        if not r:
+            print(f"[HC-SDK] ReleaseG711Encoder failed, error_id: "
+                  f"{self._hc_sdk.NET_DVR_GetLastError()}")
+
+        r = self._hc_sdk.NET_DVR_ReleaseG711Decoder(self._decoder)
+        if not r:
+            print(f"[HC-SDK] ReleaseG711Decoder failed, error_id: "
+                  f"{self._hc_sdk.NET_DVR_GetLastError()}")
+
+        r = self._hc_sdk.NET_DVR_StopVoiceCom(self.voice_handler)
+        if not r:
+            print(f"[HC-SDK] stop_voice failed, error_id: "
+                  f"{self._hc_sdk.NET_DVR_GetLastError()}")
+
     def release(self):
         try:
+            self.stop_voice()
             self._hc_sdk.NET_DVR_Logout(self._login_user_id)
             self._hc_sdk.NET_DVR_Cleanup()
         finally:
+            time.sleep(0.1)
             print("hc_sdk released")
 
     def __del__(self):
@@ -200,3 +231,18 @@ class HCHetSdk(object):
 if __name__ == "__main__":
     hc = HCHetSdk(host="192.168.3.230", username="admin",
                   password="huang7758258")
+
+    for i in range(1000):
+        print(f"play start {i}")
+        print(f"play start {i}")
+        print(f"play start {i}")
+        with hc:
+            print(f"play audio: {i}")
+            print(f"play audio: {i}")
+            print(f"play audio: {i}")
+        print(f"play end {i}")
+        print(f"play end {i}")
+        print(f"play end {i}")
+
+        print("--------------------------------------------------\n\n")
+        #time.sleep(0.1)

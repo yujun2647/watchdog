@@ -1,21 +1,23 @@
 from typing import *
-from cv2 import cv2
+import cv2
 from abc import abstractmethod
 
 from watch_dog.models.audios import AudioPlayMod
 from watch_dog.services.wd_queue_console import WdQueueConsole
-from watch_dog.services.path_service import get_alart_audio_file
+from watch_dog.services.path_service import (get_alart_audio_file,
+                                             get_person_detect_audio_file)
 
 
 class OpInst(object):
 
-    def __init__(self):
+    def __init__(self, positive=False):
         self.name = type(self).__name__
+        self.positive = positive
 
     @classmethod
     @abstractmethod
     def merge(cls, op_inst_list):
-        pass
+        return [i for i in op_inst_list if i.positive][:1]
 
     @abstractmethod
     def handle(self, q_console: WdQueueConsole):
@@ -29,24 +31,20 @@ class OpInst(object):
         return []
 
 
-class FPSInst(OpInst):
-
-    def __init__(self, pull_up: bool = False, reduce: bool = False):
-        super().__init__()
-        self.pull_up: bool = pull_up
-        self.reduce: bool = reduce
+class PersonInst(OpInst):
+    DETECT_AUDIO_FILE = get_person_detect_audio_file()
 
     @classmethod
-    def merge(cls, op_inst_list: List["FPSInst"]) -> List["FPSInst"]:
-        return cls.choose_first_not_empty(
-            [i for i in op_inst_list if i.pull_up],
-            [i for i in op_inst_list if i.reduce])[:1]
+    def merge(cls, op_inst_list: List["PersonInst"]):
+        return OpInst.merge(op_inst_list)
 
     def handle(self, q_console: WdQueueConsole):
-        if self.pull_up:
-            q_console.camera.adjust_camera_fps(15)
-        # if self.reduce:
-        #     q_console.camera.adjust_camera_fps(1)
+        if q_console.camera.audio_worker is None:
+            return
+        if self.positive:
+            q_console.camera.audio_worker.play_audio(
+                self.DETECT_AUDIO_FILE,
+                play_mod=AudioPlayMod.FORCE)
 
 
 class CarWarningInst(OpInst):
@@ -78,24 +76,26 @@ class CarWarningInst(OpInst):
             q_console.camera.audio_worker.clear_queue_stop_playing()
 
 
-class VideoRecordInst(OpInst):
+class VideoRecInst(OpInst):
     WARNING_AUDIO_FILE = get_alart_audio_file()
 
-    def __init__(self, start_record: bool = False, stop_record: bool = False):
+    def __init__(self, start_record: bool = False, stop_record: bool = False,
+                 tag="有人出现"):
         super().__init__()
         self.start_record: bool = start_record
         self.stop_record: bool = stop_record
+        self.tag = tag
 
     @classmethod
-    def merge(cls, op_inst_list: List["VideoRecordInst"]) \
-            -> List["VideoRecordInst"]:
+    def merge(cls, op_inst_list: List["VideoRecInst"]) \
+            -> List["VideoRecInst"]:
         return cls.choose_first_not_empty(
             [i for i in op_inst_list if i.start_record],
             [i for i in op_inst_list if i.stop_record])[:1]
 
     def handle(self, q_console: WdQueueConsole):
         if self.start_record:
-            q_console.start_vid_record(tag="有人出现")
+            q_console.start_vid_record(tag=self.tag)
         if self.stop_record:
             q_console.stop_vid_record()
 
@@ -107,8 +107,8 @@ class SendMsg2ClientInst(OpInst):
         self.msg: str = msg
 
     @classmethod
-    def merge(cls, op_inst_list: List["VideoRecordInst"]) \
-            -> List["VideoRecordInst"]:
+    def merge(cls, op_inst_list: List["VideoRecInst"]) \
+            -> List["VideoRecInst"]:
         return op_inst_list
 
     def handle(self, q_console: WdQueueConsole):

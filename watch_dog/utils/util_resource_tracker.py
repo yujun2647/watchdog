@@ -6,6 +6,7 @@ import _posixshmem
 import multiprocessing as mp
 from queue import Queue, Empty
 from threading import Lock, Thread
+import psutil
 
 
 class ResourceTracker(object):
@@ -120,6 +121,7 @@ def _keep_tracking():
         _clear_unregisters_at_exit(0)
     finally:
         _clear_unregisters_at_exit(1)
+        print("resource tracker exit !!!")
 
 
 tracker = mp.Process(target=_keep_tracking)

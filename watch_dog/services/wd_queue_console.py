@@ -1,17 +1,16 @@
 import atexit
 from typing import *
 import multiprocessing as mp
-from threading import Thread
 
-from cv2 import cv2
+import cv2
 
+from watch_dog.configs.constants import CarMonitorState, PersonMonitorState
 from watch_dog.utils.util_process import MultiShardObject
 from watch_dog.utils.util_queue import FastQueue, clear_queue_cache
 from watch_dog.utils.util_camera import MultiprocessCamera
 from watch_dog.utils.util_queue_console import QueueConsole
 from watch_dog.models.multi_objects.task_info import TaskInfo
-from watch_dog.models.worker_req import WorkerEndReq, WorkerStartReq, \
-    VidRecStartReq
+from watch_dog.models.worker_req import WorkerEndReq, VidRecStartReq
 
 if TYPE_CHECKING:
     from watch_dog.utils.util_process import MultiShardObject
@@ -19,6 +18,21 @@ if TYPE_CHECKING:
 
 class QueueBox(object):
     pass
+
+
+class ShareStates(object):
+    pass
+
+
+class MonitorStates(ShareStates):
+
+    def __init__(self):
+        self.car_state = mp.Value("i", CarMonitorState.NEGATIVE)
+        self.person_state = mp.Value("i", PersonMonitorState.NEGATIVE)
+
+    def is_now_active(self):
+        return (self.car_state.value == CarMonitorState.POSITIVE
+                or self.person_state.value == PersonMonitorState.POSITIVE)
 
 
 class WdQueueConsole(QueueConsole):
@@ -54,34 +68,40 @@ class WdQueueConsole(QueueConsole):
             360, name="frame4common_detect_queue")
 
         # 用于视频录制
-        self.frame4record_queue = FastQueue(60, name="record_frame_queue")
+        self.frame4record_queue = FastQueue(8 * 3, name="record_frame_queue")
 
         self.recorder_req_queue = FastQueue(name="record_frame_queue")
 
+        self.monitor_states = MonitorStates()
+
     def start_vid_record(self, tag):
-        print("开始录制")
+        print("start recording")
         self.recorder_req_queue.put(VidRecStartReq(tag=tag))
 
     def stop_vid_record(self):
-        print("结束录制")
+        print("end record")
         self.recorder_req_queue.put(WorkerEndReq())
 
     @classmethod
     def init_default(cls, console_id="console_id", camera_address=None,
-                     fps=30, video_width=1920,
-                     video_height=1080,
+                     fps=None, video_width=None,
+                     video_height=None,
                      detect_worker_num=1) -> "WdQueueConsole":
         if camera_address is None:
             camera_address = 0
 
         set_params = {
             cv2.CAP_PROP_FOURCC: cv2.VideoWriter_fourcc(*"MJPG"),
-            cv2.CAP_PROP_FRAME_WIDTH: video_width,
-            cv2.CAP_PROP_FRAME_HEIGHT: video_height,
-            cv2.CAP_PROP_FPS: fps,
             cv2.CAP_PROP_AUTO_EXPOSURE: 3,  # 曝光模式设置， 1：手动； 3: 自动
             cv2.CAP_PROP_EXPOSURE: 25,  # 曝光为手动模式时设置的曝光值， 若为自动，则这个值无效
         }
+        if fps is not None:
+            set_params[cv2.CAP_PROP_FPS] = fps
+        if video_width is not None:
+            set_params[cv2.CAP_PROP_FRAME_WIDTH] = video_width
+        if video_height is not None:
+            set_params[cv2.CAP_PROP_FRAME_HEIGHT] = video_height
+
         test_camera = MultiprocessCamera(camera_address, set_params=set_params)
         test_camera.start()
         print(f"inited default q_console")

@@ -1,13 +1,16 @@
 import json
 import time
+import multiprocessing as mp
 
-from watch_dog.services.path_service import get_cache_filepath
+from watch_dog.configs.constants import CameraConfig
 from watch_dog.utils.util_time import get_bj_time_str
+from watch_dog.services.path_service import get_cache_filepath
 
 
 class WorkerReq(object):
 
     def __init__(self, *args, **kwargs):
+        self.is_new = False
         self.req_sig = None
         self.req_type = None
         self.req_msg = None
@@ -32,14 +35,14 @@ class WorkerEndReq(WorkerReq):
 
 class VidRecStartReq(WorkerStartReq):
 
-    def __init__(self, tag="", rec_secs=10 * 3, rec_fps=15, lazy_fps=1):
+    def __init__(self, tag=""):
         super().__init__()
-        self.tag = f"{get_bj_time_str()}-{tag}"
-        self.rec_filename = f"{self.tag}.mp4"
-        self.rec_secs = rec_secs
-        self.rec_fps = rec_fps
-        self.lazy_fps = lazy_fps
+        self.raw_tag = tag
+        self.req_tag = f"{get_bj_time_str()}-{tag}"
+        self.rec_filename = f"{self.req_tag}.mp4"
+        self.write_filepath = get_cache_filepath(self.rec_filename)
+        self.rec_secs = CameraConfig.REC_SECS.value
+        self.active_fps = CameraConfig.ACTIVE_FPS.value
+        self.rest_fps = CameraConfig.REST_FPS.value
         self.c_time = time.perf_counter()
         self.m_time = time.perf_counter()
-        self.write_filepath = get_cache_filepath(self.rec_filename)
-

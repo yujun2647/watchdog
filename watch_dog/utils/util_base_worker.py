@@ -9,6 +9,8 @@ from abc import ABC, abstractmethod
 from queue import Empty, Full
 import multiprocessing as mp
 
+import setproctitle
+
 from watch_dog.configs.constants import (WorkerEnableState,
                                          WorkerState, WorkerWorkingState)
 from watch_dog.models.worker_req import WorkerReq, WorkerStartReq, WorkerEndReq
@@ -56,6 +58,7 @@ class BaseWorker(ABC):
 
         self._heart_beat = mp.Value("i", int(time.time()))
 
+        self.project_name = os.environ.get("PROJECT_NAME", "")
         self._worker_enable_state = mp.Value("i", WorkerEnableState.ENABLE)
         self._worker_state = mp.Value("i", WorkerState.READY)
         self._worker_working_state = mp.Value("i", WorkerWorkingState.NOT_START)
@@ -118,7 +121,7 @@ class BaseWorker(ABC):
         self.worker_name = (f"{type(self).__name__}-"
                             f"{self.q_console.console_id}-{self.worker_pid}")
         mp.current_process().name += f"-{self.worker_name}"
-        print(f"worker: {self.worker_name}")
+        setproctitle.setproctitle(f"{self.project_name}-{self.worker_name}")
         try:
             while True:
                 with self.butcher_knife:
@@ -148,13 +151,16 @@ class BaseWorker(ABC):
                     # 也可以由外部调用 self.force_work_done 来强制结束工作
                     self._work_req, is_new_req = self._get_new_work_req()
 
+                    if self._work_req is not None:
+                        self._work_req.is_new = is_new_req
+
                     if is_new_req:
                         # 只要是新请求，则直接传递给下方，至于如何处理，由实际工作者 self._do_work 来决定
-                        self._handle_work(self._work_req, is_new=True)
+                        self._handle_work(self._work_req)
                     elif not WorkerWorkingState.is_idle(
                             self.worker_working_state):
                         # 工作未完成，继续工作
-                        self._handle_work(self._work_req, is_new=False)
+                        self._handle_work(self._work_req)
                     else:  # 工作已完成，且没有新请求， 等待下次工作
                         time.sleep(self.IDLE_TIME)
                         self.worker_state = WorkerState.READY
@@ -443,7 +449,7 @@ class BaseWorker(ABC):
     def _set_working_state_done(self):
         self.worker_working_state = WorkerWorkingState.DONE
 
-    def _handle_work(self, work_req, is_new=False):
+    def _handle_work(self, work_req):
         """
             1、进入则设置工人状态：工作中
             2、如果当前工作状态为空闲中，则执行 工作前清理方法，并设置状态为 ”工作前已清理状态“ (before_cleaned_up)
@@ -461,15 +467,22 @@ class BaseWorker(ABC):
             第一次新请求，不是空闲状态
 
         :param work_req:
-        :param is_new:
         :return:
         """
         self.worker_state = WorkerState.WORKING
         if WorkerWorkingState.is_idle(self.worker_working_state):
-            logging.info(f"[{self.worker_name}] start before_cleaned_up ...")
-            self._do_work_before_cleaned_up(work_req)
-            logging.info(f"[{self.worker_name}] before_cleaned_up done, "
-                         f"now working_state: {self.worker_working_state_name}")
+            if not isinstance(work_req, WorkerEndReq):
+                logging.info(f"[{self.worker_name}] start before_cleaned_up"
+                             f" ...")
+                self._do_work_before_cleaned_up(work_req)
+                logging.info(f"[{self.worker_name}] before_cleaned_up done, "
+                             f"now working_state: "
+                             f"{self.worker_working_state_name}")
+            else:  # 初始状态不接受结束请求
+                self.worker_working_state = WorkerWorkingState.DONE_CLEANED_UP
+                self.worker_state = WorkerState.READY
+                logging.warning(f"[{self.worker_state}] receive WorkerEndReq "
+                                f"at the begin, pass !!!")
 
         if self.worker_working_state == WorkerWorkingState.BEFORE_CLEANED_UP:
             logging.info(f"[{self.worker_name}] start init ...")
@@ -483,7 +496,7 @@ class BaseWorker(ABC):
                          f"now working_state: {self.worker_working_state_name}")
 
         if self.worker_working_state == WorkerWorkingState.DOING:
-            self._do_working(work_req, is_new=is_new)
+            self._do_working(work_req)
 
         if self.worker_working_state == WorkerWorkingState.DONE:
             logging.info(
@@ -615,11 +628,10 @@ class BaseWorker(ABC):
     def _handle_worker_exception(self, exp):
         pass
 
-    def _do_working(self, work_req: Optional[WorkerReq], is_new=False):
+    def _do_working(self, work_req: Optional[WorkerReq]):
         """
 
         :param work_req:
-        :param is_new: 表示是否为新请求
         :return:
         """
         if isinstance(work_req, WorkerEndReq):

@@ -65,8 +65,8 @@ class HIKNetAudioController(BaseWorker):
         self._audio_play_queue_req = mp.Queue()
 
         self._playing_lock = mp.Lock()
-        self._playing_status = mp.Event()
-        self._play_done_status = mp.Event()
+        self._playing_signal = mp.Event()
+        self._play_done_signal = mp.Event()
         self._stop_play_signal = mp.Event()
         self._stopped_play_signal = mp.Event()
 
@@ -76,6 +76,7 @@ class HIKNetAudioController(BaseWorker):
 
         self._history_heartbeat_thread_stop_signal: Optional[List[TEvent]] = []
         self._keep_heartbeat_thread: Optional[Thread] = None
+        self._play_done_signal_for_heartbeat = mp.Event()
 
     @property
     def is_play_switch_on(self):
@@ -89,10 +90,18 @@ class HIKNetAudioController(BaseWorker):
     def _keep_send_heartbeats_async(self, stop_event: TEvent):
         while True:
             for _ in tqdm(range(50000), desc="Heartbeat"):
-                time.sleep(10)
                 if stop_event.is_set():
-                    break
-                if not self._playing_status.is_set():
+                    return
+
+                if self._play_done_signal_for_heartbeat.wait(timeout=2):
+                    self._play_done_signal_for_heartbeat.clear()
+                    time.sleep(2)
+
+                if self._playing_signal.is_set():
+                    print(f"正在播放，self._playing_status.is_set(): "
+                          f"{self._playing_signal.is_set()}")
+
+                if not self._playing_signal.is_set():
                     self._play_audio_by_slices(
                         AudioPlayReq(audio_file=self.HC_SDK_HEARTBEAT_FILE,
                                      is_heartbeat=True))
@@ -113,7 +122,6 @@ class HIKNetAudioController(BaseWorker):
 
     def _sub_init_work(self, work_req: WorkerStartReq):
         """ 初始化 hc_sdk"""
-        print(work_req.req_msg)
         if self._hc_sdk is None:
             self._hc_sdk = HCHetSdk(host=work_req.req_msg["host"],
                                     username=work_req.req_msg["username"],
@@ -150,8 +158,8 @@ class HIKNetAudioController(BaseWorker):
         log_method = (logging.info if not audio_play_req.is_heartbeat
                       else lambda *args, **kwargs: None)
         with self._playing_lock:
-            self._playing_status.set()
-            self._play_done_status.clear()
+            self._playing_signal.set()
+            self._play_done_signal.clear()
             try:
                 log_method(f"""
                 -----------------------------------------------------------------
@@ -177,10 +185,12 @@ class HIKNetAudioController(BaseWorker):
                         if self._stop_play_signal.is_set():
                             self._stop_play_signal.clear()
                             self._stopped_play_signal.set()
+
                             return
             finally:
-                self._playing_status.clear()
-                self._play_done_status.set()
+                self._playing_signal.clear()
+                self._play_done_signal.set()
+                self._play_done_signal_for_heartbeat.set()
 
                 log_method(
                     f"""
@@ -222,7 +232,7 @@ class HIKNetAudioController(BaseWorker):
         return True
 
     def stop_playing(self):
-        if self._playing_status.is_set():
+        if self._playing_signal.is_set():
             self._stop_play_signal.set()
             if self._stopped_play_signal.wait(timeout=1):
                 pass
@@ -240,7 +250,7 @@ class HIKNetAudioController(BaseWorker):
                    block=False, timeout=None):
         audio_play_req = AudioPlayReq(audio_file, play_mod=play_mod)
         self._play_switch_on()
-        self._play_done_status.clear()
+        self._play_done_signal.clear()
 
         if play_mod in (AudioPlayMod.CLEAR_QUEUE_FORCE, AudioPlayMod.FORCE):
             self.stop_playing()
@@ -261,7 +271,7 @@ class HIKNetAudioController(BaseWorker):
                                 queue_name="_audio_play_queue_req")
         logging.info(f"[AudioPlay][PUT QUEUE]: {audio_play_req.audio_file}")
         if block:
-            if self._play_done_status.wait(timeout=timeout):
+            if self._play_done_signal.wait(timeout=timeout):
                 return True
             return False
         return True
@@ -277,48 +287,3 @@ if __name__ == "__main__":
     set_scripts_logging(__file__, level=logging.INFO)
     hc = HIKNetAudioController()
     hc.start_work_in_subprocess()
-
-    hc.send_start_work_req(host="192.168.3.230",
-                           username="admin",
-                           password="huang7758258")
-
-
-    def _wait_connected():
-        for _ in range(50):
-            if hc.is_working():
-                print("""
-                ===================================================
-                            Audio worker is working !!!!!
-                ==================================================
-                """)
-                break
-
-            if hc.is_error_exit():
-                print(hc.worker_working_state)
-                hc.send_start_work_req(host="192.168.3.230",
-                                       username="admin",
-                                       password="huang7758258")
-
-            time.sleep(0.5)
-
-
-    _wait_connected()
-    # for i in range(20):
-    #     print(i + 1)
-    #     time.sleep(1)
-    # while True:
-    #     hc.play_audio(
-    #         audio_file="/watch_dog/static/car_alart.wav",
-    #         block=True
-    #     )
-    #
-    # for _ in range(30):
-    #     hc.play_audio(
-    #         "/home/walkerjun/myPythonCodes/watchDogCv/watch-dog-cv-backend/watch_dog/static/car_alart.wav",
-    #         play_mod=AudioPlayMod.QUEUE_PLAY)
-    # for i in range(5):
-    #     print(i + 1)
-    #     time.sleep(1)
-    #
-    # hc.play_audio(
-    #     audio_file="/home/walkerjun/myPythonCodes/sharingFiles/free_loop_raw_mixed.mp4")

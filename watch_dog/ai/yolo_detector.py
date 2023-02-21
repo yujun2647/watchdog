@@ -1,7 +1,8 @@
 import os.path
+import time
 import numpy as np
 
-from cv2 import cv2
+import cv2
 from typing import *
 
 from watch_dog.models.detect_info import DetectInfo
@@ -45,7 +46,7 @@ class YoloDetector(object):
         self.color_list = np.random.uniform(low=0, high=255,
                                             size=(len(self.classes_list), 3))
 
-    #@time_cost_log_with_desc(min_cost=35)
+    # @time_cost_log_with_desc(min_cost=10)
     def detect(self, frame_box: FrameBox) -> List[DetectInfo]:
         frame = frame_box.frame
         class_label_ids, confidences, bboxes = self.net.detect(
@@ -56,7 +57,7 @@ class YoloDetector(object):
 
         bboxes_idx = cv2.dnn.NMSBoxes(bboxes, confidences, score_threshold=0.5,
                                       nms_threshold=0.2)
-
+        width, height = frame_box.frame_size()
         detect_infos = []
         if len(bboxes_idx) != 0:
             for i in range(len(bboxes_idx)):
@@ -68,10 +69,10 @@ class YoloDetector(object):
                 class_label = class_label.replace("\n", "")
                 class_color = [int(c) for c in self.color_list[class_label_id]]
                 x, y, w, h = bbox
-                # if w * h < 5000:
-                #     continue
                 detect_infos.append(DetectInfo(
                     frame_id=frame_box.frame_id,
+                    width=width,
+                    height=height,
                     fps=frame_box.fps,
                     label=class_label,
                     bbox=(x, y, w, h),

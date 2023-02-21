@@ -7,14 +7,16 @@ from queue import Empty
 import multiprocessing as mp
 from urllib.parse import urlparse
 
+import cv2
 import numpy as np
-from cv2 import cv2
+import setproctitle
 from hikvisionapi import Client
 from tqdm import tqdm
 
 from watch_dog.utils.util_time import Timer
 from watch_dog.utils.util_uuid import unique_time_id
 from watch_dog.utils.util_rtsp import RTSPCapture
+from watch_dog.utils.util_video import H264Writer
 from watch_dog.utils.util_log import time_cost_log
 from watch_dog.utils.util_os import run_sys_command
 from watch_dog.utils.util_process import new_process
@@ -109,6 +111,9 @@ class FrameBox(object):
 
     def get_age(self):
         return time.perf_counter() - self.frame_ctime
+
+    def frame_size(self):
+        return self.frame.shape[1], self.frame.shape[0]
 
     def put_delay_text(self, tag="_____"):
         frame = self.frame
@@ -342,7 +347,7 @@ class MultiprocessCamera(object):
 
     VIDEO_PATH_TEST_FPS = 30
     # 读取帧失败的容忍值，超过这个值，则重连
-    READ_FRAME_FAILED_TOLERATE = 510
+    READ_FRAME_FAILED_TOLERATE = 5
 
     DEFAULT_SET_PARAMS = {
         cv2.CAP_PROP_FOURCC: cv2.VideoWriter_fourcc(*"MJPG"),
@@ -357,6 +362,11 @@ class MultiprocessCamera(object):
         if set_params is None:
             set_params = self.DEFAULT_SET_PARAMS
 
+        address = str(address)
+        if address.isdigit() and len(address) < 5:
+            address = f"/dev/video{address}"
+
+        self.project_name = os.environ.get("PROJECT_NAME", "")
         self.address = address
         self.set_params = set_params
         # self.store_queue: mp.Queue = mp.Queue(15)
@@ -506,6 +516,8 @@ class MultiprocessCamera(object):
 
     def _adjust_to_setting_fps(self, stream_fps):
         setting_camera_param = self.get_setting_camera_param()
+        if setting_camera_param.video_fps is None:
+            return stream_fps
         adjust_fps, self._drop_frame_index_map = self._calculate_adjust_fps(
             stream_fps, setting_camera_param.video_fps)
 
@@ -551,8 +563,21 @@ class MultiprocessCamera(object):
 
         self.stream_video_fps = int(stream.get(cv2.CAP_PROP_FPS))
         self.video_fps = self._adjust_to_setting_fps(self.stream_video_fps)
-        self.video_width = int(stream.get(cv2.CAP_PROP_FRAME_WIDTH))
-        self.video_height = int(stream.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        setting_param = self.get_setting_camera_param()
+        stream_width = int(stream.get(cv2.CAP_PROP_FRAME_WIDTH))
+        stream_height = int(stream.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        if (setting_param.video_width is None
+                and setting_param.video_height is None):
+            self.video_width = stream_width
+            self.video_height = stream_height
+        elif ((setting_param.video_width, setting_param.video_width)
+              != (stream_width, stream_height)):
+            self.video_width = setting_param.video_width
+            self.video_height = setting_param.video_height
+        else:
+            self.video_width = stream_width
+            self.video_height = stream_height
 
     @time_cost_log
     def _init_stream(self) -> cv2.VideoCapture:
@@ -609,7 +634,7 @@ class MultiprocessCamera(object):
                          f"{json.dumps(camera_param.__dict__, indent=4)}")
 
     def adjust_camera_fps(self, fps):
-        if self.video_fps == fps:
+        if fps > self.stream_video_fps or self.video_fps == fps:
             return
         self.adjust_camera_params({cv2.CAP_PROP_FPS: fps})
 
@@ -645,7 +670,7 @@ class MultiprocessCamera(object):
                 now_params = self.get_camera_params().opencv_params()
                 if new_params != now_params:
                     self._camera_params_adjust_timer.reset_timer()
-                    self.set_params = new_params
+                    self.set_params.update(new_params)
                     self._init_camera_params(self.stream)
                     self.clear_buffer()
             except Empty:
@@ -735,6 +760,7 @@ class MultiprocessCamera(object):
     def reading_frames(self):
         print(f"camera: {self.address} pid: {os.getpid()}")
         self.stream: cv2.VideoCapture = self._init_stream()
+        setproctitle.setproctitle(f"{self.project_name}-Camera")
         try:
             last_frame = None
             while True:
@@ -743,12 +769,12 @@ class MultiprocessCamera(object):
                 self._check_switch_camera_signal()
                 self._ensure_stream_opened()
                 grabbed, _frame = self.read_frame(self.stream, self.address)
-                frame_box = FrameBox(_frame, fps=self.video_fps)
-                self._plus_frame_fps_index()
                 if grabbed:
+                    self._plus_frame_fps_index()
                     if self._drop_frame_index_map.get(self._frame_fsp_index):
                         # print(f"drop: {self._frame_fsp_index}")
                         continue
+                    frame_box = FrameBox(_frame, fps=self.video_fps)
 
                     # 无条件转为 设置的 分辨率
                     resized_frame = self._frame_resize_filter(frame_box.frame)
@@ -766,6 +792,8 @@ class MultiprocessCamera(object):
                       and last_frame is not None):
                     if self.store_queue.full():
                         self.store_queue.get()
+                    last_frame.frame_id = unique_time_id()
+                    last_frame.frame_ctime = time.perf_counter()
                     self.store_queue.put(last_frame)
                 elif self.read_failed_count > self.READ_FRAME_FAILED_TOLERATE:
                     logging.warning(
@@ -1042,16 +1070,16 @@ class MultiprocessVideoCapture(object):
 
         @time_cost_log
         def _video_write():
-            # video_writer = H264Writer(save_path, fps=camera_params.video_fps,
-            #                           bit_rate=1000000)
-            video_writer = cv2.VideoWriter(
-                save_path,
-                cv2.VideoWriter_fourcc(*"mp4v"),
-                camera_params.video_fps,
-                (camera_params.video_width,
-                 camera_params.video_height),
-                True,
-            )
+            video_writer = H264Writer(save_path, fps=camera_params.video_fps,
+                                      bit_rate=1000000)
+            # video_writer = cv2.VideoWriter(
+            #     save_path,
+            #     cv2.VideoWriter_fourcc(*"mp4v"),
+            #     camera_params.video_fps,
+            #     (camera_params.video_width,
+            #      camera_params.video_height),
+            #     True,
+            # )
             for _frame in frames:
                 video_writer.write(_frame)
             # video_writer.release()
@@ -1101,9 +1129,9 @@ if __name__ == "__main__":
     # 640 * 480
     SET_PARAMS = {
         cv2.CAP_PROP_FOURCC: cv2.VideoWriter_fourcc(*"MJPG"),
-        # cv2.CAP_PROP_FRAME_WIDTH: 1920,
-        # cv2.CAP_PROP_FRAME_HEIGHT: 1080,
-        cv2.CAP_PROP_FPS: 30,
+        cv2.CAP_PROP_FRAME_WIDTH: 1280,
+        cv2.CAP_PROP_FRAME_HEIGHT: 720,
+        cv2.CAP_PROP_FPS: 60,
         cv2.CAP_PROP_AUTO_EXPOSURE: 3,  # 曝光模式设置， 1：手动； 3: 自动
         cv2.CAP_PROP_EXPOSURE: 25,  # 曝光为手动模式时设置的曝光值， 若为自动，则这个值无效
     }
@@ -1114,8 +1142,8 @@ if __name__ == "__main__":
         cv2.CAP_PROP_EXPOSURE: 25,  # 曝光为手动模式时设置的曝光值， 若为自动，则这个值无效
     }
 
-    ADDRESS4 = 0
     ADDRESS4 = "rtsp://admin:huang7758258@192.168.3.230:554/h265/ch1/main/av_stream"
+    ADDRESS4 = "0"
     # ADDRESS4 = 0
     mvc.register_camera(ADDRESS4, SET_PARAMS)
     # mvc.get_camera(ADDRESS4).play_audio("/home/walkerjun/下载/chuanqi.m4a")

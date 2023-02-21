@@ -18,9 +18,6 @@ class _Sensor(object):
 
         检测是否在目标区域有检测到目标, 返回 True/False
     """
-    # 检测 bbox 面积小于此则不检测
-    MIN_SENSOR_AREA = 5000
-    MAX_SENSOR_AREA = 1920 * 1080
 
     # 目标检测区域，仅在此区域内检测
     # x, y, w, h : 其中 x:左上点横坐标， y: 左上点横坐标; w: 长度， h: 高度
@@ -85,8 +82,10 @@ class _Sensor(object):
     def _sense(self, d_info: DetectInfo, target_area) -> bool:
         if d_info.label not in self.SENSE_LABELS:
             return False
-        if (d_info.area < self.MIN_SENSOR_AREA
-                or d_info.area > self.MAX_SENSOR_AREA):
+
+        whole_area = d_info.width * d_info.height
+        if (d_info.area < whole_area * 0.003
+                or d_info.area > whole_area * 0.75):
             return False
 
         cx, cy = d_info.center_point
@@ -115,5 +114,3 @@ class CarSensor(_Sensor):
 
     """
     SENSE_LABELS = [DetectLabels.CAR, DetectLabels.TRUCK, DetectLabels.BUS]
-
-    MAX_SENSOR_AREA = 1520 * 800

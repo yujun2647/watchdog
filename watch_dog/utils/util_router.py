@@ -20,7 +20,7 @@ class WebsocketRouteUrl(object):
 
 class Route(object):
     """
-    decorates RequestHandlers and builds up a list of routables handlers
+    decorates RequestHandlers and builds up a list of routables server
 
     Tech Notes (or 'What the *@# is really happening here?')
     --------------------------------------------------------

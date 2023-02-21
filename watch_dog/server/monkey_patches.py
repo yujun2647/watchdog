@@ -2,7 +2,7 @@ from werkzeug import serving
 from werkzeug.serving import (BaseWSGIServer,
                               ForkingWSGIServer)
 
-from watch_dog.handlers.custom_server import SportThreadedWSGIServer
+from watch_dog.server.custom_server import EnhanceThreadedWSGIServer
 
 
 def make_server(
@@ -23,7 +23,7 @@ def make_server(
         raise ValueError(
             "cannot have a multithreaded and multi process server.")
     elif threaded:
-        return SportThreadedWSGIServer(
+        return EnhanceThreadedWSGIServer(
             host, port, app, request_handler, passthrough_errors, ssl_context,
             fd=fd
         )

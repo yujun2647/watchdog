@@ -27,7 +27,7 @@ setup(
 
     entry_points={
         "console_scripts": [
-            "watchdog=watch_dog:watch",
+            "watchdog=watch_dog.watch:main",
         ],
     },
     packages=["watch_dog"],

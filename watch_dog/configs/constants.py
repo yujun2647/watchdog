@@ -1,8 +1,14 @@
 import os
 import logging
+import multiprocessing as mp
+
 from watch_dog.utils.utils_string import line2hump
 
-logger = logging.getLogger("watch_dog")
+PROJECT_NAME = "watch_dog"
+
+os.environ["PROJECT_NAME"] = PROJECT_NAME
+
+logger = logging.getLogger(PROJECT_NAME)
 
 
 class Base(object):
@@ -237,3 +243,11 @@ class DetectLabels(Base):
     @classmethod
     def is_car(cls, label: str):
         return label in (cls.CAR, cls.TRUCK, cls.BUS)
+
+
+class CameraConfig(object):
+    REST_FPS = mp.Value("i", 1)
+    ACTIVE_FPS = mp.Value("i", os.cpu_count() * 2)
+    REC_SECS = mp.Value("i", 60)
+    VIDEO_WIDTH = mp.Value("i", 1280)
+    VIDEO_HEIGHT = mp.Value("i", 720)

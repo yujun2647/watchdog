@@ -1,5 +1,6 @@
 import json
 from typing import *
+from abc import abstractmethod
 
 from urllib import parse
 from flask import request, make_response
@@ -27,6 +28,13 @@ class BaseHandler(MethodView):
         self.request_data = get_request_data()
         self.upload_allow_extensions = {ext.lower(): 1 for ext
                                         in self.UPLOAD_ALLOW_EXTENSIONS}
+
+    @abstractmethod
+    def get(self):
+        pass
+
+    def post(self):
+        pass
 
     def prepare(self):
         """

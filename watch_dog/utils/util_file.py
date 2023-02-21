@@ -4,7 +4,8 @@ import pickle
 import zipfile
 import logging
 import numpy as np
-from cv2 import cv2
+
+import cv2
 from watch_dog.utils.util_warning import ignore_error
 
 

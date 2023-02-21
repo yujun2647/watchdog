@@ -178,8 +178,8 @@ class MultiShardObject(object):
         self._update_time_attr(queue_obj)
         setattr(queue_obj, attr, value)
         self.queue.put(queue_obj)
-        tag = (f"[{queue_obj.tag}]"
-               if hasattr(queue_obj, "tag") and queue_obj.tag else "")
+        tag = (f"[{queue_obj.req_tag}]"
+               if hasattr(queue_obj, "tag") and queue_obj.req_tag else "")
         logging.info(f"[UPDATE ATTR]{tag}: updated `{type(queue_obj)}.{attr}`"
                      f" to `{value}`")
 

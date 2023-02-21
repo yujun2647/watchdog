@@ -2,7 +2,7 @@ import logging
 from typing import *
 
 import numpy as np
-from cv2 import cv2
+import cv2
 
 from watch_dog.utils.util_camera import FrameBox
 from watch_dog.utils.util_video import H264Writer
@@ -10,7 +10,7 @@ from watch_dog.models.worker_req import WorkerEndReq, VidRecStartReq
 from watch_dog.services.base.wd_base_worker import WDBaseWorker
 
 
-class VidRecorder(WDBaseWorker):
+class VidRec(WDBaseWorker):
     """
         默认 mp4v 编码视频：mpeg4压缩标准视频，只有图像没有声音
     """
@@ -37,48 +37,48 @@ class VidRecorder(WDBaseWorker):
         self.video_writer = cv2.VideoWriter(
             self.rec_req.write_filepath,
             cv2.VideoWriter_fourcc(*"mp4v"),
-            self.rec_req.rec_fps,
+            self.rec_req.active_fps,
             (self.q_console.camera.video_width,
              self.q_console.camera.video_height),
             True,
         )
 
-    def _update_vid_rec_req_info(self, rec_req: VidRecStartReq):
-
+    def _update_vid_rec_req_info(self, work_req: VidRecStartReq):
+        self.q_console.camera.adjust_camera_fps(work_req.active_fps)
         if self.rec_req is None:
-            self.rec_req = rec_req
+            self.rec_req = work_req
             return
 
-        if rec_req.c_time in (self.rec_req.c_time, self.rec_req.m_time):
+        if not work_req.is_new:
             return
 
-        now_rec_secs = self.working_handled_num / self.rec_req.rec_fps
+        now_rec_secs = self.working_handled_num / self.rec_req.active_fps
         left_secs = self.rec_req.rec_secs - now_rec_secs
 
-        plus_rec_secs = rec_req.rec_secs - left_secs
+        plus_rec_secs = work_req.rec_secs - left_secs
         if plus_rec_secs > 0:
             self.rec_req.rec_secs += plus_rec_secs
             logging.info(f"[{self.worker_name}] plus record time + "
-                         f"{plus_rec_secs} secs")
+                         f"{plus_rec_secs} secs [{work_req.raw_tag}]")
 
-        self.rec_req.m_time = rec_req.c_time
+        self.rec_req.m_time = work_req.c_time
+        self._work_req = self.rec_req
 
-    def _sub_init_work(self, rec_req: VidRecStartReq):
+    def _sub_init_work(self, work_req: VidRecStartReq):
         """
-        :param rec_req:
+        :param work_req:
         :return:
         """
-        self.q_console.camera.adjust_camera_fps(rec_req.rec_fps)
-        self._update_vid_rec_req_info(rec_req)
+        self._update_vid_rec_req_info(work_req)
         self._update_video_writer()
 
-    def _handle_start_req(self, rec_req: VidRecStartReq) -> bool:
+    def _handle_start_req(self, work_req: VidRecStartReq) -> bool:
         """
             开始获取视频帧队列，并写入
-        :param rec_req:
+        :param work_req:
         :return:
         """
-        self._update_vid_rec_req_info(rec_req)
+        self._update_vid_rec_req_info(work_req)
         return self._write_one()
 
     def _write_one(self) -> bool:
@@ -88,9 +88,9 @@ class VidRecorder(WDBaseWorker):
 
         frame_box: FrameBox = self.get_queue_item(
             self.frame_queue, queue_name="frame_queue")
+
         if frame_box is None:
             return False
-
         elif isinstance(frame_box.frame, np.ndarray):
             self.video_writer.write(frame_box.frame)
             self.working_handled_num += 1
@@ -98,7 +98,14 @@ class VidRecorder(WDBaseWorker):
             logging.warning(f"[{self.worker_name}] Wrong type frame, "
                             f"not ndarray but {type(frame_box.frame)}")
 
-        target_frame_num = self.rec_req.rec_secs * self.rec_req.rec_fps
+        target_frame_num = self.rec_req.rec_secs * self.rec_req.active_fps
+        if (self.working_handled_num >= target_frame_num
+                and self.q_console.monitor_states.is_now_active()):
+            work_req = VidRecStartReq(tag="still active")
+            work_req.is_new = True
+            self._update_vid_rec_req_info(work_req)
+
+        target_frame_num = self.rec_req.rec_secs * self.rec_req.active_fps
         return self.working_handled_num >= target_frame_num
 
     def _handle_end_req(self, work_req: WorkerEndReq) -> bool:
@@ -111,20 +118,23 @@ class VidRecorder(WDBaseWorker):
     def _sub_work_done_cleaned_up(self, work_req):
         if self.video_writer is not None and self.video_writer.isOpened():
             self.video_writer.release()
+            self.video_writer = None
+            logging.info(f"[{self.worker_name}] End of recording："
+                         f"{self.rec_req.write_filepath}")
 
         if self.rec_req is not None:
-            self.q_console.camera.adjust_camera_fps(self.rec_req.lazy_fps)
+            self.q_console.camera.adjust_camera_fps(self.rec_req.rest_fps)
             self.rec_req: Optional[VidRecStartReq] = None
 
     def _sub_clear_all_output_queues(self):
         self._sub_work_done_cleaned_up(None)
 
 
-class VidRecorderH264(VidRecorder):
+class VidRecH264(VidRec):
     """
         H264编码视频：存储占用小，主流播放格式
     """
 
     def _update_video_writer(self):
         self.video_writer = H264Writer(self.rec_req.write_filepath,
-                                       fps=self.rec_req.rec_fps)
+                                       fps=self.rec_req.active_fps)

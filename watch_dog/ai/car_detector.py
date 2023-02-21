@@ -1,7 +1,7 @@
 import os
 
 import numpy as np
-from cv2 import cv2
+import cv2
 
 from watch_dog.utils.util_log import time_cost_log
 from watch_dog.services.path_service import get_static_filepath
