@@ -23,7 +23,7 @@ def walk_package(package):
             packages.append(name)
             for folder in folders:
                 sub_name = os.path.join(name, folder)
-                _packages, _package_data = walk_package(sub_name)
+                _packages = walk_package(sub_name)
                 packages.extend(_packages)
 
     return packages
