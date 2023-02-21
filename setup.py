@@ -26,7 +26,11 @@ def walk_package(package):
                 sub_name = os.path.join(name, folder)
                 _packages, _package_data = walk_package(sub_name)
                 packages.extend(_packages)
-                package_data.update(_package_data)
+                for name, values in _package_data.items():
+                    if name in package_data:
+                        package_data[name].extend(values)
+                    else:
+                        package_data[name] = values
         else:
             items = name.split("/")
             top_name = items[0]
@@ -63,8 +67,6 @@ setup(
         ],
     },
     packages=all_packages,
-    package_data={
-
-    },
+    package_data=all_package_data,
     long_description=README,
 )
