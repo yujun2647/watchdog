@@ -116,19 +116,3 @@ class RTSPCapture(object):
 
     def __del__(self):
         self.release()
-
-
-if __name__ == "__main__":
-    import time
-    from watch_dog.utils.util_log import set_scripts_logging
-
-    set_scripts_logging(__file__)
-    address = "rtsp://admin:huang7758258@192.168.3.230:554/h264/ch1/main/av_stream"
-    stream = RTSPCapture(address)
-
-    while True:
-        grab, frame = stream.read()
-        # grab, frame = stream.read()
-        if grab:
-            cv2.imshow("frame", frame)
-            cv2.waitKey(1)

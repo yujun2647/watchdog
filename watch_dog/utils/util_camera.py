@@ -634,7 +634,9 @@ class MultiprocessCamera(object):
                          f"{json.dumps(camera_param.__dict__, indent=4)}")
 
     def adjust_camera_fps(self, fps):
-        if fps > self.stream_video_fps or self.video_fps == fps:
+        if fps > self.stream_video_fps:
+            fps = self.stream_video_fps
+        if self.video_fps == fps:
             return
         self.adjust_camera_params({cv2.CAP_PROP_FPS: fps})
 
@@ -1142,7 +1144,6 @@ if __name__ == "__main__":
         cv2.CAP_PROP_EXPOSURE: 25,  # 曝光为手动模式时设置的曝光值， 若为自动，则这个值无效
     }
 
-    ADDRESS4 = "rtsp://admin:huang7758258@192.168.3.230:554/h265/ch1/main/av_stream"
     ADDRESS4 = "0"
     # ADDRESS4 = 0
     mvc.register_camera(ADDRESS4, SET_PARAMS)

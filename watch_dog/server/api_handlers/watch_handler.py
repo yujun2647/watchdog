@@ -122,16 +122,15 @@ class WatchStream(WatchCameraHandler):
             mimetype="multipart/x-mixed-replace; boundary=frame",
         )
 
-    def get_byte_render_frame(self):
+    def get_byte_frame(self):
         frame_queue = self.q_console.render_frame_queue
         try:
             frame_box: FrameBox = frame_queue.get(timeout=5)
             self.fetched_frame_signal.set()
             frame_box.put_delay_text(tag="final")
-            # 5-10ms
-            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 25]
+            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 15]
+            #frame_box.frame = cv2.resize(frame_box.frame, (300, 200))
             result, jpeg = cv2.imencode('.jpg', frame_box.frame, encode_param)
-            # ret, jpeg = cv2.imencode('.jpg', image)
             return jpeg.tobytes()
         except Empty:
             return
@@ -143,7 +142,7 @@ class WatchStream(WatchCameraHandler):
         byte_frame = None
         while True:
             try:
-                byte_frame = self.get_byte_render_frame()
+                byte_frame = self.get_byte_frame()
             except Exception as exp:
                 logging.error(f"{exp}, {traceback.format_exc()}")
             if byte_frame is not None:

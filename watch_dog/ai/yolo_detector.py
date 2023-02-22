@@ -128,11 +128,6 @@ if __name__ == "__main__":
     from watch_dog.utils.util_camera import MultiprocessVideoCapture
 
     set_scripts_logging(__file__)
-    address = "/home/walkerjun/myPythonCodes/watchDogCv/watch-dog-cv-backend/watch_dog/static/video.avi"
-
-    address = "/home/walkerjun/myPythonCodes/watchDogCv/watch-dog-cv-backend/watch_dog/utils/test_night.mp4"
-    address = "/home/walkerjun/myPythonCodes/watchDogCv/watch-dog-cv-backend/watch_dog/utils/test_own.mp4"
-    address = "rtsp://admin:huang7758258@192.168.3.230:554/h265/ch1/main/av_stream"
     address = 0
 
     detector = YoloDetector()

@@ -229,20 +229,4 @@ class HCHetSdk(object):
 
 
 if __name__ == "__main__":
-    hc = HCHetSdk(host="192.168.3.230", username="admin",
-                  password="huang7758258")
-
-    for i in range(1000):
-        print(f"play start {i}")
-        print(f"play start {i}")
-        print(f"play start {i}")
-        with hc:
-            print(f"play audio: {i}")
-            print(f"play audio: {i}")
-            print(f"play audio: {i}")
-        print(f"play end {i}")
-        print(f"play end {i}")
-        print(f"play end {i}")
-
-        print("--------------------------------------------------\n\n")
-        #time.sleep(0.1)
+    pass

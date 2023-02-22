@@ -23,7 +23,8 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "address", help="Camera address, like '/dev/video0' or 'rtsp://***'",
+        "address", help="Camera address, like '/dev/video0' or "
+                        "'rtsp://[username]:[password]@[ip]'",
         default="/dev/video0")
 
     parser.add_argument(
