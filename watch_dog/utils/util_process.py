@@ -56,23 +56,30 @@ class ProcessController(object):
 
     @classmethod
     @ignore_assigned_error((FileNotFoundError, NoSuchProcess))
-    def kill_sub_processes(cls, pid=None):
+    def kill_sub_processes(cls, pid=None, excludes=None):
+        if excludes is None:
+            excludes = []
         pid = pid if pid is not None else os.getpid()
+        if pid in excludes:
+            return
         this_process = psutil.Process(pid)
         print(f"kill sub processes: {this_process.children()}")
         for child in this_process.children():
             # noinspection PyBroadException
+            if child.pid in excludes:
+                continue
             if child.children():
-                cls.kill_sub_processes(child.pid)
+                cls.kill_sub_processes(child.pid, excludes=excludes)
             try:
                 time.sleep(0.3)
                 # 手动方案
-                os.kill(child.pid, signal.SIGTERM)
+                os.kill(child.pid, signal.SIGINT)
                 os.waitpid(child.pid, 0)
                 # 代理方案
                 # child.terminate()
                 # child.wait(timeout=1)
-                print(f"\t[killed sub process] - {child.pid}")
+                print(f"\t[killed sub process] - {child.pid},"
+                      f" signal: {signal.SIGINT}")
             except Exception as exp:
                 print(f"[Kill process failed] error {exp}")
 

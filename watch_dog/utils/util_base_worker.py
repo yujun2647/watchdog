@@ -403,6 +403,10 @@ class BaseWorker(ABC):
                         f"while the queue is full, but pop failed !!! which "
                         f"is totally unexpected ... "
                         f"now_queue_size: {queue.qsize()}")
+                except FileNotFoundError as exp:
+                    logging.warning(f"[{self.worker_name}] {exp}, "
+                                    f"{traceback.format_exc()}")
+                    raise
             try:
                 queue.put(obj, timeout=timeout)
             except Full:  # 入队超时，则放弃入队

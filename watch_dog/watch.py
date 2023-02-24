@@ -6,8 +6,7 @@ import logging
 from watch_dog.configs.constants import CameraConfig, PathConfig
 from watch_dog.utils.util_process import ProcessController
 from watch_dog.utils.util_log import set_scripts_logging
-
-atexit.register(ProcessController.kill_sub_processes)
+from watch_dog.utils.util_resource_tracker import tracker
 
 from watch_dog.server.monkey_patches import MonkeyPatches
 
@@ -85,6 +84,8 @@ def main():
                 http://0.0.0.0:{port}/stream
     --------------------------------------------------------------------------
     """)
+    atexit.register(ProcessController.kill_sub_processes,
+                    excludes=[tracker.pid, ])
     app.run(host="0.0.0.0", port=port)
 
 
