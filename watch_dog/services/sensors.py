@@ -114,4 +114,5 @@ class CarSensor(_Sensor):
     检测到，发送警报
 
     """
-    SENSE_LABELS = [DetectLabels.CAR, DetectLabels.TRUCK, DetectLabels.BUS]
+    SENSE_LABELS = [DetectLabels.CAR, DetectLabels.TRUCK, DetectLabels.BUS,
+                    DetectLabels.BOAT, DetectLabels.TRAIN]

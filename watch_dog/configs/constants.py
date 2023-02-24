@@ -240,10 +240,6 @@ class DetectLabels(Base):
     TOOTHBRUSH = "toothbrush"
     HAIR_BRUSH = "hair brush"
 
-    @classmethod
-    def is_car(cls, label: str):
-        return label in (cls.CAR, cls.TRUCK, cls.BUS, cls.BOAT, cls.TRAIN)
-
 
 class CameraConfig(object):
     REST_FPS = mp.Value("i", 1)

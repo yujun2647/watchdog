@@ -160,6 +160,13 @@ class Monitor(WDBaseWorker):
         center_box = self.q_console.camera.center_box
         has_person = self._person_sensor.senses(d_infos, fps, center_box)
         has_car = self._car_sensor.senses(d_infos, fps, center_box)
+        # print(f"""
+        #
+        # has_person: {has_person},
+        # has_car: {has_car},
+        # d_infos: {[d.__dict__ for d in d_infos]}
+        #
+        # """)
 
         op_inst_list = self._gen_op_inst(has_car=has_car, has_person=has_person)
         if op_inst_list:
