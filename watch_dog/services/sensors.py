@@ -24,8 +24,8 @@ class _Sensor(object):
     # 如果为 (0, 0, 0, 0) 表示全区域
     TARGET_AREA = (0, 0, 0, 0)
 
-    SENSE_SECOND_TH = 0.1
-    NOT_SENSE_SECOND_TH = 0.5
+    SENSE_SECOND_TH = 0.5
+    NOT_SENSE_SECOND_TH = 1.5
 
     SENSE_LABELS = []
 
