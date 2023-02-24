@@ -76,6 +76,7 @@ class Monitor(WDBaseWorker):
                     ops.append(CarWarningInst(stop_warning=True))
                     ops.append(VideoRecInst(stop_record=True, tag=tag))
                     ops.append(SendMsg2ClientInst(send=True, msg=tag))
+                    self.car_state = CarMonitorState.CAR_NOT_LEAVE
                     self.car_pos_time = 0
             else:
                 tag = "车辆已离开"
