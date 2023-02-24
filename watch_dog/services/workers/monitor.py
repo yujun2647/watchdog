@@ -3,7 +3,8 @@ from typing import *
 
 import multiprocessing as mp
 
-from watch_dog.configs.constants import CarMonitorState, PersonMonitorState
+from watch_dog.configs.constants import (CarMonitorState, PersonMonitorState,
+                                         CameraConfig)
 from watch_dog.models.detect_info import DetectInfo
 from watch_dog.services.op_inst import (OpInst, CarWarningInst,
                                         VideoRecInst, SendMsg2ClientInst,
@@ -70,8 +71,9 @@ class Monitor(WDBaseWorker):
             if has_car:
                 # 检查老赖
                 now_time = time.perf_counter()
+                car_alart_secs = CameraConfig.CAR_ALART_SECS.value
                 if (self.car_pos_time and
-                        (now_time - self.car_pos_time) > 60 * 3):
+                        (now_time - self.car_pos_time) > car_alart_secs):
                     tag = "车辆未离开"
                     ops.append(CarWarningInst(stop_warning=True))
                     ops.append(VideoRecInst(stop_record=True, tag=tag))

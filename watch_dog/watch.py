@@ -53,6 +53,12 @@ def main():
         help="the fps when no object detected",
         default=1
     )
+
+    parser.add_argument(
+        "-car-alart-secs",
+        help="car detected alart time",
+        default=3 * 60
+    )
     parser.add_argument(
         "-cache-path",
         help="the path store the videos",
@@ -66,8 +72,10 @@ def main():
     video_height = int(args.height)
     rest_fps = int(args.rest_fps)
     active_fps = int(args.active_fps)
+    car_alart_secs = int(args.active_fps)
     CameraConfig.REST_FPS.value = rest_fps
     CameraConfig.ACTIVE_FPS.value = active_fps
+    CameraConfig.CAR_ALART_SECS.value = car_alart_secs
     port = args.port
     set_scripts_logging(__file__)
 

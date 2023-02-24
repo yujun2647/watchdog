@@ -251,3 +251,4 @@ class CameraConfig(object):
     REC_SECS = mp.Value("i", 60)
     VIDEO_WIDTH = mp.Value("i", 1280)
     VIDEO_HEIGHT = mp.Value("i", 720)
+    CAR_ALART_SECS = mp.Value("i", 3 * 60)
