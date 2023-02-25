@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WatchDog</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <script src="static/marked.min.js"></script>
+    <script src="static/jquery-1.12.0.min.js"></script>
+    <!-- CSS only -->
+    <link
+            href="static/bootstrap.min.css"
+            rel="stylesheet"
+    />
+    <!-- JavaScript Bundle with Popper -->
+    <script
+            src="static/bootstrap.bundle.min.js"
+    ></script>
+
+    <link
+            rel="stylesheet"
+            href="static/agate.min.css"
+    />
+    <script src="static/highlight.min.js"></script>
+
+    <style>
+        .page {
+            padding: 0 20px;
+        }
+
+        .request {
+            float: left;
+            #border: 2px solid #000;
+            max-width: 100%;
+            padding: 0 10px;
+            margin: 10px;
+        }
+
+        .request div {
+            padding-top: 8px;
+        }
+
+        .button {
+            width: 300px;
+            height: 300px;
+            font-size: 50px;
+        }
+
+        #video_link{
+            font-size:30px;
+        }
+
+        .dev {
+            display: none;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+        }
+
+        .header .form-switch {
+            padding-left: 0;
+            margin-left: 20px;
+        }
+
+        .header .form-switch .form-check-input {
+            float: right;
+            margin-left: 0.5em;
+        }
+
+        #doc_content {
+            display: none;
+            background-color: aliceblue;
+            padding: 20px 0;
+        }
+
+        .camera_content {
+            display: flex;
+        }
+
+        video {
+            display: none;
+            width: 100%;
+            margin-top: 10px;
+        }
+    </style>
+    <script type="text/javascript" charset="utf-8" crossorigin="anonymous">
+        $(document).ready(function () {
+
+            function get_request_div(button_element) {
+                let target_element = button_element.parent();
+                if (target_element.hasClass('request')) {
+                    return target_element;
+                } else {
+                    return get_request_div(target_element);
+                }
+            }
+
+            imageError = function (thisDiv) {
+                $.ajax({
+                    url: thisDiv.src,
+                    error: function (xhr, status, text) {
+                        alert(`[ERROR]: ${xhr.responseJSON.errorFile}`);
+                    },
+                });
+            };
+
+            showCamera = function (thisDiv, base_url) {
+                let request_el = get_request_div($(thisDiv));
+                let form_element = request_el.find('form');
+                let log_element = request_el.find('.data').find('.camera_log');
+                let img_element = request_el.find('.data').find('.camera_img');
+                let video_element = request_el.find('.data').find('.video');
+                let url = form_element.serialize();
+                url = base_url + "?" + url;
+                log_element.empty();
+                $('#log').empty();
+                var timestamp = new Date().getTime();
+                url = url + '&t=' + timestamp;
+                img_element.attr('src', url);
+                img_element.show()
+
+                video_element.attr('src', url);
+                video_element.hide()
+                // alert(url)
+            };
+
+            checkRecords = function (thisDiv, base_url) {
+                let request_el = get_request_div($(thisDiv));
+                let form_element = request_el.find('form');
+                let records_element = request_el.find('#records');
+                let url = form_element.serialize();
+                url = base_url + "?" + url;
+                records_element.empty();
+                $.ajax({
+                    url: url,
+                    success: function (result) {
+                        for (let video of result) {
+                            records_element.append(
+                                `<a id='video_link' href="javascript:void(0)" onclick="playVideo(this, '/check_video/${video}')">${video}</a><br>`)
+                        }
+
+                    },
+                    error: function (xhr, status, text) {
+                        data = JSON.stringify(xhr.responseJSON, null, 2);
+                        alert(`[ERROR]: ${xhr.responseJSON.errorMsg}`);
+                    },
+                });
+            }
+
+            playVideo = function (thisDiv, base_url) {
+                let request_el = get_request_div($(thisDiv));
+                let form_element = request_el.find('form');
+                let img_element = request_el.find('.data').find('.camera_img');
+                let video_element = request_el.find('.data').find('.video');
+                let url = form_element.serialize();
+                url = base_url + "?" + url;
+                var timestamp = new Date().getTime();
+                url = url + '&t=' + timestamp;
+                img_element.attr('src', "");
+                img_element.hide()
+
+                video_element.attr('src', url);
+                video_element.show()
+                $(video_element)[0].play()
+
+            }
+
+        });
+    </script>
+</head>
+<body>
+<div class="page">
+    <div class="camera_content">
+        <div class="request" id="camera_0">
+            <div class="data" id="data0">
+                <img
+                        id="camera_img0"
+                        class="camera_img"
+                        onerror="imageError(this)"
+                />
+                <video controls class="video" src=""></video>
+                <div id="camera_log0" class="camera_log"></div>
+            </div>
+            <form action="/stream" method="get">
+                <input name="test" hidden="hidden"/>
+
+            </form>
+            <input
+                    id="show"
+                    class="button"
+                    type="submit"
+                    value="查看摄像头"
+                    title="查看摄像头实时画面"
+                    onclick="showCamera(this, '/stream')"
+            />
+            <input
+                    id="check_records"
+                    class="button"
+                    type="submit"
+                    value="查看录像"
+                    title="查看已存录像"
+                    onclick="checkRecords(this, '/check_records')"
+            />
+            <div id="records">
+
+
+            </div>
+
+
+        </div>
+    </div>
+</div>
+</body>
+</html>
+

@@ -1,26 +1,34 @@
-import threading
+import os
 from typing import *
 import json
 import logging
 import traceback
-from queue import Empty, Queue as TQueue
+from queue import Empty
+from http import HTTPStatus
 from threading import Event as TEvent
 
 import cv2
 from werkzeug.exceptions import HTTPException
-from flask import make_response, Response, render_template
+from flask import make_response, Response, render_template, send_file
 
 from watch_dog.utils.util_router import Route
 from watch_dog.utils.util_camera import FrameBox
+from watch_dog.configs.constants import PathConfig
 from watch_dog.services.workshop import WorkShop
 from watch_dog.server.api_handlers.base_handler import BaseHandler
 
 
-@Route("/echo")
-class WatchDogHandler(BaseHandler):
-    def get(self):
-        return "working"
+@Route("/")
+class WatchDogIndex(BaseHandler):
+    @classmethod
+    def make_ok_response(cls, result):
+        return result
 
+    def get(self, *args, **kwargs):
+        return render_template("index.html")
+
+
+class WatchDogHandler(WatchDogIndex):
     LOG_RESPONSE = True
 
     def prepare(self):
@@ -84,6 +92,7 @@ class WatchDogHandler(BaseHandler):
         return make_response(response)
 
 
+@Route("/echo")
 class WatchCameraHandler(BaseHandler):
     WORKSHOP_MAP: Dict[str, WorkShop] = {}
 
@@ -102,7 +111,7 @@ class WatchCameraHandler(BaseHandler):
         return cls.WORKSHOP_MAP.get(camera_address, None)
 
     def get(self):
-        pass
+        return "working"
 
 
 @Route("/stream")
@@ -128,8 +137,8 @@ class WatchStream(WatchCameraHandler):
             frame_box: FrameBox = frame_queue.get(timeout=5)
             self.fetched_frame_signal.set()
             frame_box.put_delay_text(tag="final")
-            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 15]
-            #frame_box.frame = cv2.resize(frame_box.frame, (300, 200))
+            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 6]
+            # frame_box.frame = cv2.resize(frame_box.frame, (300, 200))
             result, jpeg = cv2.imencode('.jpg', frame_box.frame, encode_param)
             return jpeg.tobytes()
         except Empty:
@@ -153,3 +162,31 @@ class WatchStream(WatchCameraHandler):
 
     def get(self):
         return self.handle_view_request()
+
+
+@Route("/check_records")
+class RecordHandler(WatchDogHandler):
+
+    def get(self):
+        try:
+            _, _, videos = next(os.walk(PathConfig.CACHE_DATAS_PATH))
+        except StopIteration:
+            return []
+
+        videos = [v for v in videos if v.endswith(".mp4")]
+        videos.sort(key=lambda v: v[:v.rindex("-")], reverse=True)
+        return videos
+
+
+@Route("/check_video/<video_name>")
+class CheckVideo(WatchDogHandler):
+
+    @classmethod
+    def make_ok_response(cls, result):
+        return result
+
+    def get(self, video_name):
+        video_filepath = os.path.join(PathConfig.CACHE_DATAS_PATH, video_name)
+        if not os.path.exists(video_filepath):
+            raise FileNotFoundError(f"file {video_filepath} not exist")
+        return send_file(video_filepath)

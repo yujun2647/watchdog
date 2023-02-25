@@ -30,7 +30,7 @@ class BaseHandler(MethodView):
                                         in self.UPLOAD_ALLOW_EXTENSIONS}
 
     @abstractmethod
-    def get(self):
+    def get(self, *args, **kwargs):
         pass
 
     def post(self):
@@ -70,6 +70,9 @@ class BaseHandler(MethodView):
     def handle_exception(self, exp) -> None:
         # business-logger-web 已经代理了异常处理，这里不用再处理了
         raise exp
+
+    def get_header(self, name: str, default=None):
+        return self.request.headers.get(name, default)
 
     def get_argument(
             self, name: str,
