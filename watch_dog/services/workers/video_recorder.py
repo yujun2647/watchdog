@@ -137,4 +137,5 @@ class VidRecH264(VidRec):
 
     def _update_video_writer(self):
         self.video_writer = H264Writer(self.rec_req.write_filepath,
-                                       fps=self.rec_req.active_fps)
+                                       fps=self.rec_req.active_fps,
+                                       bit_rate=1024*500)
