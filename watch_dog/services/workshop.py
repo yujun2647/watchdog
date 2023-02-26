@@ -73,6 +73,7 @@ class WorkShop(object):
                 continue
             try:
                 frame_box: FrameBox = render_frame_queue.get(timeout=5)
+                frame_box.put_delay_text(tag="final")
                 self.q_console.live_frame = frame_box
             except Empty:
                 continue
