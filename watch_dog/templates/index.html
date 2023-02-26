@@ -119,7 +119,7 @@
                 img_element.attr('src', url);
                 img_element.show()
 
-                video_element.attr('src', url);
+                video_element.attr('src', "");
                 video_element.hide()
                 // alert(url)
             };
@@ -181,14 +181,14 @@
                 <video controls class="video" src=""></video>
                 <div id="camera_log0" class="camera_log"></div>
             </div>
-            <form action="/stream" method="get">
+            <form action="" method="get">
                 <input name="test" hidden="hidden"/>
 
             </form>
             <input
                     id="show"
                     class="button"
-                    type="submit"
+                    type="button"
                     value="查看摄像头"
                     title="查看摄像头实时画面"
                     onclick="showCamera(this, '/stream')"
@@ -196,7 +196,7 @@
             <input
                     id="check_records"
                     class="button"
-                    type="submit"
+                    type="button"
                     value="查看录像"
                     title="查看已存录像"
                     onclick="checkRecords(this, '/check_records')"
