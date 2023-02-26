@@ -248,3 +248,4 @@ class CameraConfig(object):
     VIDEO_WIDTH = mp.Value("i", 1280)
     VIDEO_HEIGHT = mp.Value("i", 720)
     CAR_ALART_SECS = mp.Value("i", 3 * 60)
+    CACHE_DAYS = mp.Value("i", 30)

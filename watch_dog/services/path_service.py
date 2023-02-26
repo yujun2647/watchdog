@@ -31,6 +31,26 @@ def get_cache_filepath(filename):
     return os.path.join(get_cache_path(), filename)
 
 
+def get_cache_videos():
+    try:
+        _, _, videos = next(os.walk(PathConfig.CACHE_DATAS_PATH))
+    except StopIteration:
+        return []
+
+    videos = [v for v in videos if v.endswith(".mp4")]
+    videos.sort(key=lambda v: v[:v.rindex("-")], reverse=True)
+    return videos
+
+
 if __name__ == "__main__":
-    t = get_cache_filepath("test.mp4")
+    from datetime import datetime, timedelta
+    ts = get_cache_videos()
+    tt = datetime.now() - timedelta(days=5)
+    tt_str = tt.strftime("%Y-%m-%d-%H-%M-%S-%f")
+    removes = []
+    for t in ts:
+        _t = t[:t.rindex("-")]
+        if _t < tt_str:
+            removes.append(t)
+
     print("debug")

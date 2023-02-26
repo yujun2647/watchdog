@@ -1,11 +1,15 @@
+import os
 import logging
 from typing import *
+from datetime import datetime, timedelta
 
 import numpy as np
 import cv2
 
 from watch_dog.utils.util_camera import FrameBox
 from watch_dog.utils.util_video import H264Writer
+from watch_dog.configs.constants import PathConfig, CameraConfig
+from watch_dog.services.path_service import get_cache_videos
 from watch_dog.models.worker_req import WorkerEndReq, VidRecStartReq
 from watch_dog.services.base.wd_base_worker import WDBaseWorker
 
@@ -69,6 +73,7 @@ class VidRec(WDBaseWorker):
         :param work_req:
         :return:
         """
+        self._clean_expired_videos()
         self._update_vid_rec_req_info(work_req)
         self._update_video_writer()
 
@@ -129,6 +134,24 @@ class VidRec(WDBaseWorker):
     def _sub_clear_all_output_queues(self):
         self._sub_work_done_cleaned_up(None)
 
+    def _clean_expired_videos(self):
+        videos = get_cache_videos()
+        tt = datetime.now() - timedelta(
+            days=CameraConfig.CACHE_DAYS.value)
+        tt_str = tt.strftime("%Y-%m-%d-%H-%M-%S-%f")
+        removes = []
+        for t in videos:
+            _t = t[:t.rindex("-")]
+            if _t < tt_str:
+                removes.append(t)
+
+        for r in removes:
+            filepath = os.path.join(PathConfig.CACHE_DATAS_PATH, r)
+            if os.path.exists(filepath):
+                os.remove(filepath)
+                logging.info(f"[{self.worker_name}] remove expired video: "
+                             f"{filepath}")
+
 
 class VidRecH264(VidRec):
     """
@@ -138,4 +161,4 @@ class VidRecH264(VidRec):
     def _update_video_writer(self):
         self.video_writer = H264Writer(self.rec_req.write_filepath,
                                        fps=self.rec_req.active_fps,
-                                       bit_rate=1024*500)
+                                       bit_rate=1024 * 500)

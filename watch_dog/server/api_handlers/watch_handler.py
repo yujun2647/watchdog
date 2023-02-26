@@ -13,9 +13,9 @@ from flask import make_response, Response, render_template, send_file
 
 from watch_dog.utils.util_router import Route
 from watch_dog.utils.util_camera import FrameBox
-from watch_dog.utils.util_log import time_cost_log
 from watch_dog.configs.constants import PathConfig
 from watch_dog.services.workshop import WorkShop
+from watch_dog.services.path_service import get_cache_videos
 from watch_dog.server.api_handlers.base_handler import BaseHandler
 
 
@@ -177,14 +177,7 @@ class WatchStream(WatchCameraHandler):
 class RecordHandler(WatchDogHandler):
 
     def get(self):
-        try:
-            _, _, videos = next(os.walk(PathConfig.CACHE_DATAS_PATH))
-        except StopIteration:
-            return []
-
-        videos = [v for v in videos if v.endswith(".mp4")]
-        videos.sort(key=lambda v: v[:v.rindex("-")], reverse=True)
-        return videos
+        return get_cache_videos()
 
 
 @Route("/check_video/<video_name>")
