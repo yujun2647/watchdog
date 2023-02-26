@@ -1,7 +1,8 @@
 import time
+from typing import *
 import logging
-from queue import Empty
-from threading import Event as TEvent
+from queue import Empty, Queue as TQueue
+from threading import Event as TEvent, Lock as TLock
 
 from watch_dog.configs.constants import CameraConfig
 
@@ -13,6 +14,23 @@ from watch_dog.services.wd_queue_console import WdQueueConsole
 from watch_dog.services.workers.monitor import Monitor
 from watch_dog.services.workers.frame_distributor import FrameDistributor
 from watch_dog.services.workers.detect.common_detector import CommonDetector
+
+
+class TimeTQueue(TQueue):
+
+    def __init__(self, maxsize=0):
+        super().__init__(maxsize=maxsize)
+        self.ctime = time.perf_counter()
+        self.mtime = time.perf_counter()
+
+    def get(self, block=True, timeout=None):
+        t = super().get(block=block, timeout=timeout)
+        self.mtime = time.perf_counter()
+        return t
+
+    @property
+    def break_time(self):
+        return time.perf_counter() - self.mtime
 
 
 class WorkShop(object):
@@ -28,6 +46,9 @@ class WorkShop(object):
         self._stop_load_event = TEvent()
         self.consume_req_event = TEvent()
         self.consuming_req_event = TEvent()
+
+        self._live_frame_queues: List[TimeTQueue] = []
+        self._live_queues_lock = TLock()
 
         self.frame_dst = FrameDistributor(q_console=self.q_console)
 
@@ -51,6 +72,12 @@ class WorkShop(object):
 
         self.preloading_live_frame()
 
+    def register_view_request(self) -> TimeTQueue:
+        with self._live_queues_lock:
+            ttq = TimeTQueue()
+            self._live_frame_queues.append(ttq)
+            return ttq
+
     def notify_consume_req(self):
         self.consume_req_event.set()
 
@@ -69,11 +96,23 @@ class WorkShop(object):
             if not self.consuming_req_event.wait(timeout=5):
                 logging.info("No consuming req event, exit preload")
                 self.consume_req_event.clear()
-                time.sleep(1)
+                self._live_frame_queues.clear()
                 continue
             try:
                 frame_box: FrameBox = render_frame_queue.get(timeout=5)
                 frame_box.put_delay_text(tag="final")
+                with self._live_queues_lock:
+                    expires = []
+                    for queue in self._live_frame_queues:
+                        if queue.break_time > 30:
+                            expires.append(queue)
+                            continue
+                        queue.put(frame_box)
+                    for queue in expires:
+                        self._live_frame_queues.remove(queue)
+                        logging.info(f"queue: {queue.break_time} expired, "
+                                     f"removed")
+
                 self.q_console.live_frame = frame_box
             except Empty:
                 continue

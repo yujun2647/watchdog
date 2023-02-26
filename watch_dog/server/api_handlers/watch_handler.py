@@ -122,9 +122,8 @@ class WatchStream(WatchCameraHandler):
         super().__init__(*args, **kwargs)
         self.work_shop = self.get_workshop()
         self.q_console = self.work_shop.q_console
-        self.fetched_frame_signal = TEvent()
-        self.fetched_frame_signal.set()
         self.last: Optional[FrameBox] = None
+        self.frame_queue = self.work_shop.register_view_request()
 
     @classmethod
     def make_ok_response(cls, view_request_gen):
@@ -140,26 +139,14 @@ class WatchStream(WatchCameraHandler):
         return jpeg.tobytes()
 
     def get_byte_frame(self):
-        frame_queue = self.q_console.render_frame_queue
-        live_frame = self.q_console.live_frame
         try:
-            if (self.last and self.q_console.live_frame
-                    and live_frame.frame_ctime > self.last.frame_ctime):
-                frame_box: FrameBox = self.q_console.live_frame
-            elif self.last is None and self.q_console.live_frame is not None:
-                frame_box: FrameBox = self.q_console.live_frame
+            if self.last is None and self.q_console.live_frame is not None:
+                frame_box = self.q_console.live_frame
             else:
-                frame_box: FrameBox = frame_queue.get(timeout=0.5)
-                frame_box.put_delay_text(tag="final")
-                self.q_console.live_frame = frame_box
+                frame_box = self.frame_queue.get(timeout=5)
             self.last = frame_box
             return self.encode(frame_box.frame)
         except Empty:
-            if (self.last and self.q_console.live_frame
-                    and live_frame.frame_ctime > self.last.frame_ctime):
-                frame_box: FrameBox = self.q_console.live_frame
-                self.last = frame_box
-                return self.encode(frame_box.frame)
             return
 
     def handle_view_request(self):
@@ -171,6 +158,7 @@ class WatchStream(WatchCameraHandler):
             try:
                 self.work_shop.consuming_req_event.set()
                 byte_frame = self.get_byte_frame()
+
             except Exception as exp:
                 logging.error(f"{exp}, {traceback.format_exc()}")
             if byte_frame is not None:
