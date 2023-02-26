@@ -93,7 +93,7 @@ class Monitor(WDBaseWorker):
                 self.car_state = CarMonitorState.NEGATIVE
                 tag = "车辆已离开"
                 self.car_pos_time = 0
-                ops.append(VideoRecInst(stop_record=True, tag=tag))
+                ops.append(VideoRecInst(start_record=True, tag=tag))
                 ops.append(SendMsg2ClientInst(send=True, msg=tag))
 
         return ops
