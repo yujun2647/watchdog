@@ -4,15 +4,16 @@ import json
 import logging
 import traceback
 from queue import Empty
-from http import HTTPStatus
 from threading import Event as TEvent
 
 import cv2
+import numpy as np
 from werkzeug.exceptions import HTTPException
 from flask import make_response, Response, render_template, send_file
 
 from watch_dog.utils.util_router import Route
 from watch_dog.utils.util_camera import FrameBox
+from watch_dog.utils.util_log import time_cost_log
 from watch_dog.configs.constants import PathConfig
 from watch_dog.services.workshop import WorkShop
 from watch_dog.server.api_handlers.base_handler import BaseHandler
@@ -123,6 +124,7 @@ class WatchStream(WatchCameraHandler):
         self.q_console = self.work_shop.q_console
         self.fetched_frame_signal = TEvent()
         self.fetched_frame_signal.set()
+        self.last: Optional[FrameBox] = None
 
     @classmethod
     def make_ok_response(cls, view_request_gen):
@@ -131,17 +133,31 @@ class WatchStream(WatchCameraHandler):
             mimetype="multipart/x-mixed-replace; boundary=frame",
         )
 
+    @classmethod
+    def encode(cls, frame: np.ndarray):
+        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 20]
+        result, jpeg = cv2.imencode('.jpg', frame, encode_param)
+        return jpeg.tobytes()
+
     def get_byte_frame(self):
         frame_queue = self.q_console.render_frame_queue
+        live_frame = self.q_console.live_frame
         try:
-            frame_box: FrameBox = frame_queue.get(timeout=5)
-            self.fetched_frame_signal.set()
-            frame_box.put_delay_text(tag="final")
-            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 6]
-            # frame_box.frame = cv2.resize(frame_box.frame, (300, 200))
-            result, jpeg = cv2.imencode('.jpg', frame_box.frame, encode_param)
-            return jpeg.tobytes()
+            if (self.last and self.q_console.live_frame
+                    and live_frame.frame_ctime > self.last.frame_ctime):
+                frame_box: FrameBox = self.q_console.live_frame
+            else:
+                frame_box: FrameBox = frame_queue.get(timeout=1)
+                frame_box.put_delay_text(tag="final")
+                self.q_console.live_frame = frame_box
+            self.last = frame_box
+            return self.encode(frame_box.frame)
         except Empty:
+            if (self.last and self.q_console.live_frame
+                    and live_frame.frame_ctime > self.last.frame_ctime):
+                frame_box: FrameBox = self.q_console.live_frame
+                self.last = frame_box
+                return self.encode(frame_box.frame)
             return
 
     def handle_view_request(self):
@@ -151,16 +167,19 @@ class WatchStream(WatchCameraHandler):
         byte_frame = None
         while True:
             try:
+                self.work_shop.consuming_req_event.set()
                 byte_frame = self.get_byte_frame()
             except Exception as exp:
                 logging.error(f"{exp}, {traceback.format_exc()}")
             if byte_frame is not None:
+                self.work_shop.consuming_req_event.clear()
                 yield (
                         b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n"
                         + byte_frame + b"\r\n\r\n"
                 )
 
     def get(self):
+        self.work_shop.notify_consume_req()
         return self.handle_view_request()
 
 

@@ -6,8 +6,8 @@ import cv2
 
 from watch_dog.configs.constants import CarMonitorState, PersonMonitorState
 from watch_dog.utils.util_process import MultiShardObject
-from watch_dog.utils.util_queue import FastQueue, clear_queue_cache
-from watch_dog.utils.util_camera import MultiprocessCamera
+from watch_dog.utils.util_queue import FastQueue
+from watch_dog.utils.util_camera import MultiprocessCamera, FrameBox
 from watch_dog.utils.util_queue_console import QueueConsole
 from watch_dog.models.multi_objects.task_info import TaskInfo
 from watch_dog.models.worker_req import WorkerEndReq, VidRecStartReq
@@ -49,6 +49,7 @@ class WdQueueConsole(QueueConsole):
 
         # 相机对象
         self.camera = camera
+        self.live_frame: Optional[FrameBox] = None
 
         # 用于存放已标注/渲染后的帧
         self.render_frame_queue = FastQueue(10, name="render_frame_queue")
