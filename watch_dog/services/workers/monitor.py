@@ -112,7 +112,7 @@ class Monitor(WDBaseWorker):
                 self.person_state = PersonMonitorState.POSITIVE
         elif self.person_state == PersonMonitorState.POSITIVE:
             if not has_person:
-                ops.append(VideoRecInst(stop_record=True, tag="有人出现"))
+                ops.append(VideoRecInst(stop_record=True, tag="人已离开"))
                 ops.append(
                     SendMsg2ClientInst(
                         send=True,
