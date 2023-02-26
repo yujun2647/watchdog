@@ -146,6 +146,8 @@ class WatchStream(WatchCameraHandler):
             if (self.last and self.q_console.live_frame
                     and live_frame.frame_ctime > self.last.frame_ctime):
                 frame_box: FrameBox = self.q_console.live_frame
+            elif self.last is None and self.q_console.live_frame is not None:
+                frame_box: FrameBox = self.q_console.live_frame
             else:
                 frame_box: FrameBox = frame_queue.get(timeout=0.5)
                 frame_box.put_delay_text(tag="final")
