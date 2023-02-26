@@ -147,7 +147,7 @@ class WatchStream(WatchCameraHandler):
                     and live_frame.frame_ctime > self.last.frame_ctime):
                 frame_box: FrameBox = self.q_console.live_frame
             else:
-                frame_box: FrameBox = frame_queue.get(timeout=0.005)
+                frame_box: FrameBox = frame_queue.get(timeout=0.5)
                 frame_box.put_delay_text(tag="final")
                 self.q_console.live_frame = frame_box
             self.last = frame_box
