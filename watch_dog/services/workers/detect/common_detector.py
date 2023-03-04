@@ -28,7 +28,8 @@ class CommonDetector(WDBaseWorker):
         d_infos = self.detector.detect(frame_box)
 
         if not d_infos:
-            d_infos.append(DetectInfo(frame_box.frame_id, is_detected=False))
+            d_infos.append(DetectInfo(frame_box.frame_id, fps=frame_box.fps,
+                                      is_detected=False))
 
         self.put_queue_item(self.q_console.detect_infos_queue, d_infos,
                             force_put=True)

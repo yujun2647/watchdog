@@ -24,8 +24,8 @@ class _Sensor(object):
     # 如果为 (0, 0, 0, 0) 表示全区域
     TARGET_AREA = (0, 0, 0, 0)
 
-    SENSE_SECOND_TH = 0.5
-    NOT_SENSE_SECOND_TH = 1.5
+    SENSE_SEC_TH = 0.5
+    NOT_SENSE_SEC_TH = 1.5
 
     SENSE_LABELS = []
 
@@ -59,12 +59,17 @@ class _Sensor(object):
 
         if frame_sense_result:
             self.sense_frame_num += 1
-            if self.sense_frame_num >= fps * self.SENSE_SECOND_TH:
+            if self.sense_frame_num >= fps * self.SENSE_SEC_TH:
                 self.now_sense_state = SenseState.SENSED
                 self.not_sense_frame_num = 0
         elif self.now_sense_state == SenseState.SENSED:
             self.not_sense_frame_num += 1
-            if self.not_sense_frame_num >= fps * self.NOT_SENSE_SECOND_TH:
+            # 当前模型会有小概率发生连续1、2帧识别不到的问题，由此可能会错误地认为，目标
+            # 真的不见了，为了避免这个错误识别， 这里应该处理这种情况，
+            # 识别目标不存在，判断的帧数量，应至少为 6
+            # print(self.not_sense_frame_num, fps,
+            #       max(fps * self.NOT_SENSE_SEC_TH, 6))
+            if self.not_sense_frame_num >= max(fps * self.NOT_SENSE_SEC_TH, 6):
                 self.now_sense_state = SenseState.NOT_SENSED
                 self.sense_frame_num = 0
 
@@ -105,7 +110,7 @@ class PersonSensor(_Sensor):
     """行人感应器"""
 
     SENSE_LABELS = [DetectLabels.PERSON, ]
-    NOT_SENSE_SECOND_TH = 1.5
+    NOT_SENSE_SEC_TH = 1.5
 
 
 class CarSensor(_Sensor):
