@@ -27,6 +27,9 @@ class _Sensor(object):
     SENSE_SEC_TH = 0.5
     NOT_SENSE_SEC_TH = 1.5
 
+    MIN_AREA = 0.003
+    MAX_AREA = 0.75
+
     SENSE_LABELS = []
 
     def __init__(self):
@@ -89,8 +92,9 @@ class _Sensor(object):
             return False
 
         whole_area = d_info.width * d_info.height
-        if (d_info.area < whole_area * 0.003
-                or d_info.area > whole_area * 0.75):
+        if (d_info.area < whole_area * self.MIN_AREA
+                or d_info.area > whole_area * self.MAX_AREA):
+            # print(f"{round((d_info.area / whole_area)*100, 2)}%")
             return False
 
         cx, cy = d_info.center_point
@@ -121,3 +125,4 @@ class CarSensor(_Sensor):
     """
     SENSE_LABELS = [DetectLabels.CAR, DetectLabels.TRUCK, DetectLabels.BUS,
                     DetectLabels.BOAT, DetectLabels.TRAIN]
+    MAX_AREA = 0.5
