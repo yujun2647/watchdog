@@ -21,7 +21,8 @@ class RTSPCapture(object):
         self.stream = self._container.streams.video[0]
 
         self._is_opened = mp.Value("d", 0)
-        self._is_opened.value = 1
+        if self.stream.average_rate is not None:
+            self._is_opened.value = 1
 
         self._video_width = mp.Value("d", 0)
         self._video_height = mp.Value("d", 0)
@@ -34,7 +35,8 @@ class RTSPCapture(object):
 
     def get(self, key):
         if key == cv2.CAP_PROP_FPS:
-            return self.stream.average_rate
+            return (self.stream.average_rate
+                    if self.stream.average_rate is not None else 0)
 
         if key == cv2.CAP_PROP_FRAME_WIDTH:
             if self._video_width.value > 0:

@@ -804,9 +804,7 @@ class MultiprocessCamera(object):
                         f"stream status: {self.stream.isOpened()},"
                         f"address: {self.address}"
                     )
-                    self.stream.release()
-                    if CameraAddressUtil.is_usb_camera(self.address):
-                        CameraAddressUtil.force_release_usb_camera(self.address)
+                    self.release()
                     self.stream = None
                     time.sleep(0.5)
                     self.stream = self._init_stream()
@@ -820,11 +818,7 @@ class MultiprocessCamera(object):
             
             -------------------------------------------------------------
             """)
-            if self.stream:
-                self.stream.release()
-
-            if CameraAddressUtil.is_usb_camera(self.address):
-                CameraAddressUtil.force_release_usb_camera(self.address)
+            self.release()
 
     def clear_buffer(self):
         buffer_size = self.store_queue.qsize()
@@ -899,11 +893,22 @@ class MultiprocessCamera(object):
         if self.audio_worker is None:
             self.audio_worker = self._init_audio_worker()
 
+    def release(self):
+        # noinspection PyBroadException
+        try:
+            if self.stream:
+                self.stream.release()
+            if CameraAddressUtil.is_usb_camera(self.address):
+                CameraAddressUtil.force_release_usb_camera(self.address)
+        except Exception:
+            pass
+
     def close(self):
         if self.view_worker:
             if self.view_worker.is_alive():
                 self.view_worker.terminate()
                 os.waitpid(self.view_worker.pid, 0)
+        self.release()
 
     def __del__(self):
         # noinspection PyBroadException
@@ -1149,7 +1154,8 @@ if __name__ == "__main__":
     mvc.register_camera(ADDRESS4, SET_PARAMS)
     # mvc.get_camera(ADDRESS4).play_audio("/home/walkerjun/下载/chuanqi.m4a")
 
-    mvc.show_camera(ADDRESS4)
+    time.sleep(100)
+    #mvc.show_camera(ADDRESS4)
     #
     # mvc.save_video(ADDRESS4, frame_num=250, save_path="./test_continue.mp4")
     # mvc.adjust_params(ADDRESS4, SET_PARAMS2)
