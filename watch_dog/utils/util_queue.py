@@ -395,10 +395,11 @@ class FastQueue(Queue):
                         #           f"pickle cost: {cost} ms")
 
                         # if buf_mem_views:
-                        shared_buf_header = SharedBufferHeader.create_one(
-                            buf_mem_views)
-                        buf_header_pack = shared_buf_header.pack_header()
-                        obj = buf_header_pack + obj
+                        if self._use_out_band:
+                            shared_buf_header = SharedBufferHeader.create_one(
+                                buf_mem_views)
+                            buf_header_pack = shared_buf_header.pack_header()
+                            obj = buf_header_pack + obj
 
                         if wacquire is None:
                             send_bytes(obj)
