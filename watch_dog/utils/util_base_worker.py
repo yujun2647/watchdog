@@ -16,7 +16,7 @@ from watch_dog.configs.constants import (WorkerEnableState,
 from watch_dog.models.worker_req import WorkerReq, WorkerStartReq, WorkerEndReq
 
 from watch_dog.utils.util_history_object import HistoryObject
-from watch_dog.utils.util_queue import clear_queue_cache
+from watch_dog.utils.util_queue import clear_queue_cache, FastQueue
 
 from watch_dog.models.multi_objects.strs import MultiTaskId, MultiWorkerName
 from watch_dog.models.multi_objects.task_info import TaskInfo
@@ -378,7 +378,8 @@ class BaseWorker(ABC):
 
         return queue_item
 
-    def put_queue_item(self, queue: mp.Queue, obj: object, queue_name="",
+    def put_queue_item(self, queue: [mp.Queue, FastQueue],
+                       obj: object, queue_name="",
                        timeout=None, force_put=False):
         """
 
@@ -395,7 +396,7 @@ class BaseWorker(ABC):
         with self.butcher_knife:
             if queue.full() and force_put:
                 try:
-                    queue.get(timeout=timeout)
+                    queue.abandon_one(timeout=timeout)
                 except Empty:
                     logging.warning(
                         f"[{self.worker_name}] pop one item from "

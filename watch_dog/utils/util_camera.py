@@ -370,7 +370,7 @@ class MultiprocessCamera(object):
         self.address = address
         self.set_params = set_params
         # self.store_queue: mp.Queue = mp.Queue(15)
-        self.store_queue: mp.Queue = FastQueue(
+        self.store_queue: FastQueue = FastQueue(
             15, name="camera_store_queue")
 
         # 切换摄像头信号，其中存放新的摄像机地址
@@ -788,12 +788,12 @@ class MultiprocessCamera(object):
                     last_frame = frame_box
                     if self.store_queue.full():
                         # 保持读取摄像头最新的数据
-                        self.store_queue.get()
+                        self.store_queue.abandon_one()
                     self.store_queue.put(frame_box)
                 elif (CameraAddressUtil.is_file_address(self.address)
                       and last_frame is not None):
                     if self.store_queue.full():
-                        self.store_queue.get()
+                        self.store_queue.abandon_one()
                     last_frame.frame_id = unique_time_id()
                     last_frame.frame_ctime = time.perf_counter()
                     self.store_queue.put(last_frame)

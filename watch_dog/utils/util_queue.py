@@ -193,11 +193,14 @@ class SharedBufferHeader(object):
         threading.Thread(target=_release).start()
         # print(f"t3 cost: {round((time.perf_counter() - start) * 1000)} ms")
 
-    def pickle_load(self, pickle_engine: Pickle5, datas):
+    def pickle_load(self, pickle_engine: Pickle5, datas, abandon=False):
         """ call in `with context` """
         self._recv_datas = pickle_engine.loads(
             datas, buffers=self._buf_memory_views)
         # start = time.perf_counter()
+        if abandon:
+            return None
+
         recv_datas = deepcopy(self._recv_datas)
         # print(f"copy cost: {round((time.perf_counter() - start) * 1000)} ms")
         return recv_datas
@@ -277,7 +280,10 @@ class FastQueue(Queue):
         self._use_out_band = use_out_band
         self._pickler = Pickle5(self._use_out_band)
 
-    def get(self, block=True, timeout=None):
+    def abandon_one(self, block=True, timeout=None):
+        return self.get(block=block, timeout=timeout, abandon=True)
+
+    def get(self, block=True, timeout=None, abandon=False):
 
         if self._closed:
             raise ValueError(f"Queue {self!r} is closed")
@@ -310,7 +316,8 @@ class FastQueue(Queue):
 
             with buf_header:
                 recv_datas = buf_header.pickle_load(pickle_engine=self._pickler,
-                                                    datas=real_datas)
+                                                    datas=real_datas,
+                                                    abandon=abandon)
         else:
             recv_datas = self._pickler.loads(res)
 
