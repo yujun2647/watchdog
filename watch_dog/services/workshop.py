@@ -116,3 +116,11 @@ class WorkShop(object):
                 self.q_console.live_frame = frame_box
             except Empty:
                 continue
+
+    def test_monitor(self):
+        from cv2 import cv2
+        while True:
+            frame_box: FrameBox = self.q_console.render_frame_queue.get()
+            frame_box.put_delay_text("final")
+            cv2.imshow("frame", frame_box.frame)
+            cv2.waitKey(1)
