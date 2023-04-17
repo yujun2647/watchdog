@@ -27,7 +27,7 @@ class _Sensor(object):
     SENSE_SEC_TH = 0.5
     NOT_SENSE_SEC_TH = 1.5
 
-    MIN_AREA = 0.003
+    MIN_AREA = 0.05
     MAX_AREA = 0.75
 
     SENSE_LABELS = []
@@ -94,7 +94,8 @@ class _Sensor(object):
         whole_area = d_info.width * d_info.height
         if (d_info.area < whole_area * self.MIN_AREA
                 or d_info.area > whole_area * self.MAX_AREA):
-            # print(f"{round((d_info.area / whole_area)*100, 2)}%")
+            logging.info(f"False size of {d_info.label} :"
+                         f"{round((d_info.area / whole_area)*100, 2)}%")
             return False
 
         cx, cy = d_info.center_point
@@ -102,6 +103,8 @@ class _Sensor(object):
 
         if (target_area == (0, 0, 0, 0) or
                 (tx < cx < tx + tw and ty < cy < ty + th)):
+            logging.info(f"right target of {d_info.label}, size: "
+                         f"{round((d_info.area / whole_area) * 100, 2)}%")
             return True
 
         return False
