@@ -27,7 +27,7 @@ class _Sensor(object):
     SENSE_SEC_TH = 0.5
     NOT_SENSE_SEC_TH = 1.5
 
-    MIN_AREA = 0.05
+    MIN_AREA = 0.02
     MAX_AREA = 0.75
 
     SENSE_LABELS = []
