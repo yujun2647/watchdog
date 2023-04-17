@@ -17,7 +17,7 @@ from watch_dog.services.base.wd_base_worker import WDBaseWorker
 
 class Marker(WDBaseWorker):
     # 检测到的物体 bbox 面积小于次时， 则不会显示出来
-    MIN_AREA = 5000
+    MIN_AREA = 0.02
 
     def __sub_init__(self):
         self.frame_box_queue = self.q_console.frame4mark_queue
@@ -66,7 +66,8 @@ class Marker(WDBaseWorker):
                             f"{round(detect_info.confidence, 4)}")
             x, y, w, h = detect_info.bbox
 
-            if w * h < self.MIN_AREA:
+            whole_area = detect_info.width * detect_info.height
+            if detect_info.area < whole_area * self.MIN_AREA:
                 continue
 
             # 标记中心点
