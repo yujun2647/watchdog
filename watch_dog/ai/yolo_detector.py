@@ -54,8 +54,9 @@ class YoloDetector(object):
         bboxes = list(bboxes)
         confidences = list(np.array(confidences).reshape(1, -1)[0])
         confidences = list(map(float, confidences))
-
-        bboxes_idx = cv2.dnn.NMSBoxes(bboxes, confidences, score_threshold=0.5,
+        # todo 白天 score_threshold=0.5, nms_threshold=0.2
+        # 晚上 score_threshold=0.55  nms_threshold=0.2
+        bboxes_idx = cv2.dnn.NMSBoxes(bboxes, confidences, score_threshold=0.55,
                                       nms_threshold=0.2)
         width, height = frame_box.frame_size()
         detect_infos = []

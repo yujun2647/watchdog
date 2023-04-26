@@ -94,8 +94,8 @@ class _Sensor(object):
         whole_area = d_info.width * d_info.height
         if (d_info.area < whole_area * self.MIN_AREA
                 or d_info.area > whole_area * self.MAX_AREA):
-            logging.info(f"False size of {d_info.label} :"
-                         f"{round((d_info.area / whole_area)*100, 2)}%")
+            # logging.info(f"False size of {d_info.label} :"
+            #              f"{round((d_info.area / whole_area)*100, 2)}%")
             return False
 
         cx, cy = d_info.center_point
@@ -103,8 +103,8 @@ class _Sensor(object):
 
         if (target_area == (0, 0, 0, 0) or
                 (tx < cx < tx + tw and ty < cy < ty + th)):
-            logging.info(f"right target of {d_info.label}, size: "
-                         f"{round((d_info.area / whole_area) * 100, 2)}%")
+            # logging.info(f"right target of {d_info.label}, size: "
+            #              f"{round((d_info.area / whole_area) * 100, 2)}%")
             return True
 
         return False
