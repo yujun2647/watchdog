@@ -397,9 +397,6 @@ class FastQueue(Queue):
                             close()
                             return
 
-                        if self.name == "analysis":
-                            print(f"{obj.__dict__}, {obj}")
-
                         # serialize the data before acquiring the lock
                         # start = time.perf_counter()
                         obj, buf_mem_views = self._pickler.dumps(obj)
