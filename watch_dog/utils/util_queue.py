@@ -13,17 +13,18 @@ from typing import *
 from queue import Empty
 from threading import Thread
 from copy import deepcopy
-from multiprocessing import queues, Process, context, resource_tracker
+from multiprocessing import queues, Process
 from multiprocessing.queues import Queue
-
 # 这里 IDE 会检查错误，忽略
+from multiprocessing import context, resource_tracker
 from multiprocessing.util import debug, info, Finalize, register_after_fork, \
     is_exiting
-from multiprocessing.shared_memory import SharedMemory
+from multiprocessing.shared_memory import SharedMemory, _USE_POSIX, _posixshmem
 
 from watch_dog.utils.util_log import set_scripts_logging, time_cost_log
 from watch_dog.utils.util_stack import find_caller
 from watch_dog.utils.util_process import new_process
+from watch_dog.utils.util_shared_memory import EnhanceSharedMemory
 
 
 @new_process()
@@ -156,6 +157,16 @@ class Pickle5(object):
         return pickle.Unpickler(file, buffers=buffers).load()
 
 
+if os.name == "nt":
+    import _winapi
+
+    _USE_POSIX = False
+else:
+    import _posixshmem
+
+    _USE_POSIX = True
+
+
 class SharedBufferHeader(object):
 
     def __init__(self, shared_name, shared_size,
@@ -166,7 +177,7 @@ class SharedBufferHeader(object):
         self.shared_size = shared_size
 
         self._buf_memory_views: List[memoryview] = None
-        self._shared_mem: Optional[SharedMemory] = None
+        self._shared_mem: Optional[EnhanceSharedMemory] = None
         self._recv_datas = None
 
     # @time_cost_log_with_desc(min_cost=0.5)
@@ -240,7 +251,7 @@ class SharedBufferHeader(object):
         memory_views_size = sum(lengths)
         if memory_views_size == 0:
             memory_views_size = 1
-        shared_mem = SharedMemory(create=True, size=memory_views_size)
+        shared_mem = EnhanceSharedMemory(create=True, size=memory_views_size)
 
         write_offset = 0
         for i, length in enumerate(lengths):
@@ -256,8 +267,8 @@ class SharedBufferHeader(object):
                                   memory_views_ranges=memory_views_ranges)
 
     def recv_from_shared_mem(self) -> Tuple[
-        List[memoryview], SharedMemory]:
-        shared_mem = SharedMemory(name=self.shared_name)
+        List[memoryview], EnhanceSharedMemory]:
+        shared_mem = EnhanceSharedMemory(name=self.shared_name)
         datas = shared_mem.buf[:self.shared_size]
         memory_views = []
         for mem_view_range in self.memory_views_ranges:
@@ -269,10 +280,6 @@ class SharedBufferHeader(object):
 class FastQueue(Queue):
     """
     """
-    if os.name == "posix":
-        # 确保 resource_tracker 在 FastQueue 使用共享内存之前启动，
-        # 防止多个子进程重复创建 resource_tracker 进程
-        resource_tracker.ensure_running()
 
     def __init__(self, maxsize=0, name="queue", use_out_band=True):
         super().__init__(maxsize=maxsize, ctx=context._default_context)
