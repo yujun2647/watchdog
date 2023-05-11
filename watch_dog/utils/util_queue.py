@@ -10,9 +10,10 @@ import errno
 import logging
 import threading
 from typing import *
-from queue import Empty
+from queue import Empty, Full
 from threading import Thread
 from copy import deepcopy
+import multiprocessing as mp
 from multiprocessing import queues, Process
 from multiprocessing.queues import Queue
 # 这里 IDE 会检查错误，忽略
@@ -171,14 +172,18 @@ class SharedBufferHeader(object):
 
     def __init__(self, shared_name, shared_size,
                  memory_views_ranges: List[Tuple[int, int]],
+                 shm_reuse_queue: Optional[mp.Queue] = None,
+                 is_shm_reuse=False,
                  **kwargs):
         self.shared_name = shared_name
         self.memory_views_ranges = memory_views_ranges
         self.shared_size = shared_size
+        self.is_shm_reuse = is_shm_reuse
 
         self._buf_memory_views: List[memoryview] = None
         self._shared_mem: Optional[EnhanceSharedMemory] = None
         self._recv_datas = None
+        self._shm_reuse_queue: Optional[mp.Queue] = shm_reuse_queue
 
     # @time_cost_log_with_desc(min_cost=0.5)
     def __enter__(self):
@@ -198,7 +203,13 @@ class SharedBufferHeader(object):
         def _release():
             if self._shared_mem is not None:
                 self._shared_mem.close()
-                self._shared_mem.unlink()
+                if self._shm_reuse_queue is not None:
+                    try:
+                        self._shm_reuse_queue.put(self._shared_mem.name)
+                    except Full:
+                        self._shared_mem.unlink()
+                else:
+                    self._shared_mem.unlink()
 
         # _release()
         threading.Thread(target=_release).start()
@@ -223,10 +234,12 @@ class SharedBufferHeader(object):
         return buf_headers_len_pack + buf_headers
 
     @classmethod
-    def unpack_header(cls, bytes_obj) -> Tuple["SharedBufferHeader", bytes]:
+    def unpack_header(cls, bytes_obj, shm_reuse_queue: mp.Queue) \
+            -> Tuple["SharedBufferHeader", bytes]:
         headers_len = struct.unpack("Q", bytes_obj[0:8])[0]
         try:
             headers = json.loads(bytes_obj[8: 8 + headers_len])
+            headers["shm_reuse_queue"] = shm_reuse_queue
         except Exception:
             print(bytes_obj)
             raise
@@ -244,16 +257,44 @@ class SharedBufferHeader(object):
                 return len(frame_or_memoryview)
 
     @classmethod
-    def create_one(cls, mem_views: List[memoryview]) -> "SharedBufferHeader":
+    def fetch_from_shm_reuse_queue(cls, size, shm_reuse_queue: mp.Queue):
+        if shm_reuse_queue is None or shm_reuse_queue.qsize() == 0:
+            return
+        while True:
+            try:
+                shm_name = shm_reuse_queue.get(timeout=0.001)
+                shm = EnhanceSharedMemory(name=shm_name)
+                if shm.size != size:
+                    shm.close()
+                    shm.unlink()
+                    continue
+                return shm
+            except Empty:
+                return
+
+    @classmethod
+    # @time_cost_log_with_desc(min_cost=0, log_method=logging.info)
+    def create_one(cls, mem_views: List[memoryview],
+                   shm_reuse_queue: Optional[mp.Queue] = None
+                   ) -> "SharedBufferHeader":
         lengths = [cls.nbytes(memory_view) for memory_view in mem_views]
 
         memory_views_ranges = []
         memory_views_size = sum(lengths)
         if memory_views_size == 0:
             memory_views_size = 1
-        shared_mem = EnhanceSharedMemory(create=True, size=memory_views_size)
+
+        shared_mem = cls.fetch_from_shm_reuse_queue(
+            memory_views_size, shm_reuse_queue)
+
+        is_shm_reuse = True
+        if shared_mem is None:
+            shared_mem = EnhanceSharedMemory(create=True,
+                                             size=memory_views_size)
+            is_shm_reuse = False
 
         write_offset = 0
+
         for i, length in enumerate(lengths):
             write_end = write_offset + length
             memory_views_ranges.append((write_offset, write_end))
@@ -264,10 +305,12 @@ class SharedBufferHeader(object):
         shared_mem.close()
         return SharedBufferHeader(shared_name=shared_mem.name,
                                   shared_size=memory_views_size,
-                                  memory_views_ranges=memory_views_ranges)
+                                  memory_views_ranges=memory_views_ranges,
+                                  is_shm_reuse=is_shm_reuse)
 
-    def recv_from_shared_mem(self) -> Tuple[
-        List[memoryview], EnhanceSharedMemory]:
+    # @time_cost_log_with_desc(min_cost=0, log_method=logging.info)
+    def recv_from_shared_mem(self) \
+            -> Tuple[List[memoryview], EnhanceSharedMemory]:
         shared_mem = EnhanceSharedMemory(name=self.shared_name)
         datas = shared_mem.buf[:self.shared_size]
         memory_views = []
@@ -286,6 +329,8 @@ class FastQueue(Queue):
         self.name = name
         self._use_out_band = use_out_band
         self._pickler = Pickle5(self._use_out_band)
+        # 共享内存复用
+        self._shm_reuse_queue = mp.Queue(maxsize=max(1, maxsize // 2))
 
     def abandon_one(self, block=True, timeout=None):
         return self.get(block=block, timeout=timeout, abandon=True)
@@ -319,7 +364,8 @@ class FastQueue(Queue):
         # unserialize the data after having released the lock
 
         if self._use_out_band:
-            buf_header, real_datas = SharedBufferHeader.unpack_header(res)
+            buf_header, real_datas = SharedBufferHeader.unpack_header(
+                res, self._shm_reuse_queue)
 
             with buf_header:
                 recv_datas = buf_header.pickle_load(pickle_engine=self._pickler,
@@ -399,7 +445,7 @@ class FastQueue(Queue):
 
                         # serialize the data before acquiring the lock
                         # start = time.perf_counter()
-                        obj, buf_mem_views = self._pickler.dumps(obj)
+                        p_obj, buf_mem_views = self._pickler.dumps(obj)
                         # cost = round((time.perf_counter() - start) * 1000, 2)
                         # if cost > 1:
                         #     print(f"test-{self.queue_name}, "
@@ -408,17 +454,21 @@ class FastQueue(Queue):
                         # if buf_mem_views:
                         if self._use_out_band:
                             shared_buf_header = SharedBufferHeader.create_one(
-                                buf_mem_views)
+                                buf_mem_views, self._shm_reuse_queue)
                             buf_header_pack = shared_buf_header.pack_header()
-                            obj = buf_header_pack + obj
+                            p_obj = buf_header_pack + p_obj
 
                         if wacquire is None:
-                            send_bytes(obj)
+                            send_bytes(p_obj)
                         else:
                             wacquire()
                             try:
-                                send_bytes(obj)
+                                send_bytes(p_obj)
                             finally:
+                                # cost = time.perf_counter() - start
+                                # print(f"cost: {round(cost * 1000, 2)} ms, "
+                                #       f"is_shm_reuse: {shared_buf_header.is_shm_reuse},"
+                                #       f"shm_reuse_queue_size: {self._shm_reuse_queue.qsize()}")
                                 wrelease()
                 except IndexError:
                     pass

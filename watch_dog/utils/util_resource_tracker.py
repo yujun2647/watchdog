@@ -60,7 +60,7 @@ def _keep_tracking():
                     pass
             time.sleep(10)
 
-    def _clear_unregisters_at_exit(tag):
+    def _clear_unregisters_at_exit(*args, **kwargs):
         while ResourceTracker.REGISTER_QUEUE.qsize() > 0:
             try:
                 name = ResourceTracker.REGISTER_QUEUE.get(timeout=0.01)
@@ -113,6 +113,9 @@ def _keep_tracking():
                     UNREGISTER_QUEUE: {ResourceTracker.UNREGISTER_QUEUE.qsize()}
         ======================================================================
         """)
+
+    signal.signal(signal.SIGINT, _clear_unregisters_at_exit)
+    signal.signal(signal.SIGTERM, _clear_unregisters_at_exit)
 
     try:
         Thread(target=_track_register, daemon=True).start()
