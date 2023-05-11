@@ -113,6 +113,7 @@ def _keep_tracking():
                     UNREGISTER_QUEUE: {ResourceTracker.UNREGISTER_QUEUE.qsize()}
         ======================================================================
         """)
+        exit(0)
 
     signal.signal(signal.SIGINT, _clear_unregisters_at_exit)
     signal.signal(signal.SIGTERM, _clear_unregisters_at_exit)
