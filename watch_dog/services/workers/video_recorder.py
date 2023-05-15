@@ -125,7 +125,8 @@ class VidRec(WDBaseWorker):
             self.video_writer.release()
             self.video_writer = None
             logging.info(f"[{self.worker_name}] End of recording："
-                         f"{self.rec_req.write_filepath}")
+                         f"{self.rec_req.write_filepath}, "
+                         f"remain: {self.frame_queue.qsize()}")
 
         if self.rec_req is not None:
             self.q_console.camera.adjust_camera_fps(self.rec_req.rest_fps)
