@@ -4,6 +4,7 @@ import time
 import logging
 from typing import *
 from queue import Empty
+from threading import Event as TEvent
 import multiprocessing as mp
 from urllib.parse import urlparse
 
@@ -85,6 +86,11 @@ class FrameBox(object):
 
         self._last_delay_y = 0
         self.last_xy = (0, 0)
+
+        # 用于在多线程中赋值/获取 下一帧，不支持多进程共享
+        self.next: Optional[FrameBox] = None
+        # 用于在多线程中判断下一帧是否已存在
+        self.next_come: Optional[TEvent] = None
 
     def update(self, frame: Optional[np.ndarray] = None, is_marked=False):
         self.is_marked = is_marked
@@ -810,6 +816,8 @@ class MultiprocessCamera(object):
                     self.stream = self._init_stream()
                 else:
                     self.read_failed_count += 1
+        except KeyboardInterrupt:
+            self.release()
         finally:
             print(f"""
             -------------------------------------------------------------

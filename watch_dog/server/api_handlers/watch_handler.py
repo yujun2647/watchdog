@@ -149,6 +149,19 @@ class WatchStream(WatchCameraHandler):
         except Empty:
             return
 
+    def get_byte_frame2(self):
+        try:
+            if self.last is None:
+                frame_box = self.work_shop.live_frame
+            else:
+                if not self.last.next_come.wait(timeout=5):
+                    raise Empty
+                frame_box = self.last.next
+            self.last = frame_box
+            return self.encode(frame_box.frame)
+        except Empty:
+            return
+
     def handle_view_request(self):
         """
         :return:
@@ -157,7 +170,7 @@ class WatchStream(WatchCameraHandler):
         while True:
             try:
                 self.work_shop.consuming_req_event.set()
-                byte_frame = self.get_byte_frame()
+                byte_frame = self.get_byte_frame2()
 
             except Exception as exp:
                 logging.error(f"{exp}, {traceback.format_exc()}")
