@@ -41,7 +41,7 @@ class VidRec(WDBaseWorker):
         self.video_writer = cv2.VideoWriter(
             self.rec_req.write_filepath,
             cv2.VideoWriter_fourcc(*"mp4v"),
-            self.rec_req.active_fps,
+            self.q_console.camera.video_fps,
             (self.q_console.camera.video_width,
              self.q_console.camera.video_height),
             True,
@@ -160,5 +160,5 @@ class VidRecH264(VidRec):
 
     def _update_video_writer(self):
         self.video_writer = H264Writer(self.rec_req.write_filepath,
-                                       fps=self.rec_req.active_fps,
+                                       fps=self.q_console.camera.video_fps,
                                        bit_rate=1024 * 500)
