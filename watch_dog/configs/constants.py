@@ -4,7 +4,7 @@ import multiprocessing as mp
 
 from watch_dog.utils.utils_string import line2hump
 
-PROJECT_NAME = "watch_dog"
+PROJECT_NAME = "watchdog"
 
 os.environ["PROJECT_NAME"] = PROJECT_NAME
 
