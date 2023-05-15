@@ -1,5 +1,6 @@
 import os
 import argparse
+from watch_dog import __version__
 
 parser = argparse.ArgumentParser()
 
@@ -7,6 +8,9 @@ parser.add_argument(
     "address", help="Camera address, like '/dev/video0' or "
                     "'rtsp://[username]:[password]@[ip]'",
     default="/dev/video0", type=str)
+
+parser.version = str(__version__)
+parser.add_argument('-V', action='version', help='print the version and exit')
 
 parser.add_argument(
     "-port", help="API server port, default: 8000",
