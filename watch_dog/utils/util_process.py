@@ -3,6 +3,7 @@ import signal
 import time
 import sys
 import json
+import atexit
 import logging
 import psutil
 from typing import *
@@ -57,6 +58,9 @@ class ProcessController(object):
     @classmethod
     @ignore_assigned_error((FileNotFoundError, NoSuchProcess))
     def kill_sub_processes(cls, pid=None, excludes=None):
+        def _wait(_pid):
+            os.waitpid(_pid, 0)
+
         if excludes is None:
             excludes = []
         pid = pid if pid is not None else os.getpid()
@@ -71,10 +75,15 @@ class ProcessController(object):
             if child.children():
                 cls.kill_sub_processes(child.pid, excludes=excludes)
             try:
-                time.sleep(0.3)
                 # 手动方案
                 os.kill(child.pid, signal.SIGINT)
-                os.waitpid(child.pid, 0)
+                t = threading.Thread(target=_wait, args=(child.pid,))
+                try:
+                    t.start()
+                    t.join(timeout=1)
+                finally:
+                    if t.is_alive():
+                        os.kill(child.pid, signal.SIGKILL)
                 # 代理方案
                 # child.terminate()
                 # child.wait(timeout=1)
@@ -94,6 +103,11 @@ class ProcessController(object):
         os.waitpid(this_process.pid, 0)
         # this_process.terminate()
         # this_process.wait(timeout=1)
+
+    @classmethod
+    def register_kill_all_subprocess_at_exit(cls):
+        # kill all sub process at exit
+        atexit.register(cls.kill_sub_processes, pid=os.getpid())
 
 
 @ignore_assigned_error((FileNotFoundError, NoSuchProcess))

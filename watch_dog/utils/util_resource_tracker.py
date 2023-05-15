@@ -7,6 +7,7 @@ import _posixshmem
 import multiprocessing as mp
 from queue import Empty
 from threading import Lock, Thread
+from watch_dog.utils.util_process import ProcessController
 
 
 class ResourceTracker(object):
@@ -155,6 +156,7 @@ def _ensure_kill_tracker_at_exit():
             os.kill(tracker.pid, signal.SIGKILL)
 
 
+ProcessController.register_kill_all_subprocess_at_exit()
 atexit.register(_ensure_kill_tracker_at_exit)
 
 if __name__ == "__main__":
