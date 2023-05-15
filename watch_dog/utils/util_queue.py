@@ -205,7 +205,8 @@ class SharedBufferHeader(object):
                 self._shared_mem.close()
                 if self._shm_reuse_queue is not None:
                     try:
-                        self._shm_reuse_queue.put(self._shared_mem.name)
+                        self._shm_reuse_queue.put(self._shared_mem.name,
+                                                  timeout=0.3)
                     except Full:
                         self._shared_mem.unlink()
                 else:
