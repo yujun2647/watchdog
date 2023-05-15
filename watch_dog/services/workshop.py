@@ -70,7 +70,17 @@ class WorkShop(object):
         self.frame_dst.start_work_in_subprocess()
         self.vid_recorder.start_work_in_subprocess()
 
-        self.preloading_live_frame()
+        self._live_frame: Optional[FrameBox] = None
+        self._live_frame_come = TEvent()
+
+        # self.preloading_live_frame()
+        self.preloading_live_frame2()
+
+    @property
+    def live_frame(self) -> FrameBox:
+        if not self._live_frame_come.wait(timeout=5):
+            raise Empty
+        return self._live_frame
 
     def register_view_request(self) -> TimeTQueue:
         with self._live_queues_lock:
@@ -80,6 +90,22 @@ class WorkShop(object):
 
     def notify_consume_req(self):
         self.consume_req_event.set()
+
+    @new_thread
+    def preloading_live_frame2(self):
+        render_frame_queue = self.q_console.render_frame_queue
+
+        while True:
+            frame_box: FrameBox = render_frame_queue.get()
+            frame_box.put_delay_text("final")
+            frame_box.next_come = TEvent()
+            if self._live_frame is None:
+                self._live_frame = frame_box
+                self._live_frame_come.set()
+                continue
+            self._live_frame.next = frame_box
+            self._live_frame.next_come.set()
+            self._live_frame = frame_box
 
     @new_thread
     def preloading_live_frame(self):
