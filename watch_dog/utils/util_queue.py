@@ -324,13 +324,14 @@ class FastQueue(Queue):
     """
     """
 
-    def __init__(self, maxsize=0, name="queue", use_out_band=True):
+    def __init__(self, maxsize=0, name="queue", use_out_band=True,
+                 shm_reuse_size=2):
         super().__init__(maxsize=maxsize, ctx=context._default_context)
         self.name = name
         self._use_out_band = use_out_band
         self._pickler = Pickle5(self._use_out_band)
         # 共享内存复用
-        self._shm_reuse_queue = mp.Queue(maxsize=max(1, maxsize // 2))
+        self._shm_reuse_queue = mp.Queue(maxsize=shm_reuse_size)
 
     def abandon_one(self, block=True, timeout=None):
         return self.get(block=block, timeout=timeout, abandon=True)
