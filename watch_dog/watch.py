@@ -68,6 +68,8 @@ args = parser.parse_args()
 
 import logging
 
+import setproctitle
+
 from watch_dog.configs.constants import CameraConfig, PathConfig
 from watch_dog.utils.util_log import set_scripts_logging
 
@@ -82,6 +84,8 @@ from watch_dog.services.workshop import WorkShop
 
 
 def main():
+    project_name = os.environ.get("PROJECT_NAME", "")
+    setproctitle.setproctitle(f"{project_name}-MainProcess-{os.getpid()}")
     camera_address = args.address
     PathConfig.CACHE_DATAS_PATH = args.cache_path
     CameraConfig.REST_FPS.value = args.rest_fps
