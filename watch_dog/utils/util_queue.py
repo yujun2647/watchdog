@@ -208,7 +208,10 @@ class SharedBufferHeader(object):
                         self._shm_reuse_queue.put(self._shared_mem.name,
                                                   timeout=0.3)
                     except Full:
-                        self._shared_mem.unlink()
+                        try:
+                            self._shared_mem.unlink()
+                        except FileNotFoundError:
+                            pass
                 else:
                     self._shared_mem.unlink()
 
