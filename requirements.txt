@@ -1,5 +1,6 @@
 flask
-opencv-contrib-python~=4.5.1.48
+opencv-contrib-python~=4.5.1.48;python_version<="3.9"
+opencv-contrib-python;python_version>="3.10"
 av
 psutil
 hikvisionapi

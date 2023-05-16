@@ -55,6 +55,7 @@ setup(
     name="watch_dog",
     version=__version__,
     description="",
+    python_requires=">=3.8",
     install_requires=INSTALL_REQUIRES,
     url="",
     author="walkerjun",
