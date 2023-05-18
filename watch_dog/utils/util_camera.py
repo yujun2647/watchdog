@@ -20,10 +20,10 @@ from watch_dog.utils.util_rtsp import RTSPCapture
 from watch_dog.utils.util_video import H264Writer
 from watch_dog.utils.util_log import time_cost_log
 from watch_dog.utils.util_os import run_sys_command
-from watch_dog.utils.util_process import new_process
 from watch_dog.utils.util_thread import execute_by_thread
 from watch_dog.utils.util_v4l2 import get_videocap_devices
-from watch_dog.utils.util_queue import clear_queue, FastQueue
+from watch_dog.utils.util_multiprocess.process import new_process
+from watch_dog.utils.util_multiprocess.queue import clear_queue, FastQueue
 from watch_dog.utils.util_net import is_connected, get_host_name
 from watch_dog.utils.util_hik_net_audio_controller import HIKNetAudioController
 from watch_dog.models.health_info import HealthRspInfo
@@ -1130,7 +1130,6 @@ class MultiprocessVideoCapture(object):
 
 if __name__ == "__main__":
     from watch_dog.utils.util_log import set_scripts_logging
-    from watch_dog.services.wd_queue_console import WdQueueConsole
 
     set_scripts_logging(__file__)
     print(f"main pid: {os.getpid()}")

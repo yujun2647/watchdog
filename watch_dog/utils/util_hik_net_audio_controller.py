@@ -21,8 +21,8 @@ from tqdm import tqdm
 
 from watch_dog.utils.util_hik_sdk import HCHetSdk
 from watch_dog.utils.util_thread import new_daemon_thread
-from watch_dog.utils.util_queue import clear_queue_cache
-from watch_dog.utils.util_base_worker import BaseWorker
+from watch_dog.utils.util_multiprocess.queue import clear_queue_cache
+from watch_dog.utils.util_multiprocess.base_worker import BaseWorker
 from watch_dog.models.worker_req import WorkerStartReq, WorkerEndReq
 from watch_dog.models.audios import AudioPlayReq, AudioPlayMod
 

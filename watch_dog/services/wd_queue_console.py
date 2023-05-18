@@ -1,19 +1,17 @@
-import atexit
 from typing import *
 import multiprocessing as mp
 
 import cv2
 
 from watch_dog.configs.constants import CarMonitorState, PersonMonitorState
-from watch_dog.utils.util_process import MultiShardObject
-from watch_dog.utils.util_queue import FastQueue
+
+from watch_dog.utils.util_multiprocess.queue import FastQueue
 from watch_dog.utils.util_camera import MultiprocessCamera, FrameBox
-from watch_dog.utils.util_queue_console import QueueConsole
-from watch_dog.models.multi_objects.task_info import TaskInfo
+from watch_dog.utils.util_multiprocess.queue_console import QueueConsole
 from watch_dog.models.worker_req import WorkerEndReq, VidRecStartReq
 
 if TYPE_CHECKING:
-    from watch_dog.utils.util_process import MultiShardObject
+    from watch_dog.utils.util_multiprocess.multi_object import MultiShareObject
 
 
 class QueueBox(object):
@@ -38,10 +36,10 @@ class MonitorStates(ShareStates):
 class WdQueueConsole(QueueConsole):
 
     def __init__(self, camera: "MultiprocessCamera",
-                 global_worker_task: Optional["MultiShardObject"] = None,
+                 global_worker_task: Optional["MultiShareObject"] = None,
                  console_id: str = "", detect_worker_num=1):
         if global_worker_task is None:
-            global_worker_task = MultiShardObject(TaskInfo(task_name=""))
+            global_worker_task = mp.Manager().TaskInfo(task_name="")
         super().__init__(global_worker_task=global_worker_task,
                          console_id=console_id)
 
@@ -111,5 +109,6 @@ class WdQueueConsole(QueueConsole):
 
 
 if __name__ == "__main__":
-    _global_worker_task = MultiShardObject(TaskInfo(task_name=""))
-    q_console = WdQueueConsole(global_worker_task=_global_worker_task)
+    _global_worker_task = mp.Manager().TaskInfo(task_name="")
+    q_console = WdQueueConsole(None, global_worker_task=_global_worker_task)
+    print("debug")

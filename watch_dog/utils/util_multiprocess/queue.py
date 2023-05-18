@@ -16,16 +16,15 @@ from copy import deepcopy
 import multiprocessing as mp
 from multiprocessing import queues, Process
 from multiprocessing.queues import Queue
+
+from multiprocessing import context
 # 这里 IDE 会检查错误，忽略
-from multiprocessing import context, resource_tracker
-from multiprocessing.util import debug, info, Finalize, register_after_fork, \
-    is_exiting
-from multiprocessing.shared_memory import SharedMemory, _USE_POSIX, _posixshmem
+from multiprocessing.util import debug, info, Finalize, is_exiting
 
 from watch_dog.utils.util_log import set_scripts_logging, time_cost_log
 from watch_dog.utils.util_stack import find_caller
-from watch_dog.utils.util_process import new_process
-from watch_dog.utils.util_shared_memory import EnhanceSharedMemory
+from watch_dog.utils.util_multiprocess.process import new_process
+from watch_dog.utils.util_multiprocess.shared_memory import EnhanceSharedMemory
 
 
 @new_process()
@@ -71,8 +70,6 @@ def clear_queue_cache(queue: Queue, queue_msg=None, time_out=0.01):
     if queue_msg is None and hasattr(queue, "name"):
         queue_msg = getattr(queue, "name")
 
-    logging.info(f"[clear_queue_cache]: {queue_msg}, caller: {find_caller()}, "
-                 f"buffer_size: {buffer_size} ")
     if not buffer_size:
         return
     logging.info(f"[clear_queue_cache]: pid:　{os.getpid()} "
@@ -156,16 +153,6 @@ class Pickle5(object):
 
         file = io.BytesIO(obj_p)
         return pickle.Unpickler(file, buffers=buffers).load()
-
-
-if os.name == "nt":
-    import _winapi
-
-    _USE_POSIX = False
-else:
-    import _posixshmem
-
-    _USE_POSIX = True
 
 
 class SharedBufferHeader(object):

@@ -3,7 +3,7 @@ from abc import abstractmethod
 
 from watch_dog.services.wd_queue_console import WdQueueConsole
 from watch_dog.models.worker_req import WorkerEndReq, WorkerStartReq
-from watch_dog.utils.util_base_worker import BaseWorker
+from watch_dog.utils.util_multiprocess.base_worker import BaseWorker
 
 
 class WDBaseWorker(BaseWorker):

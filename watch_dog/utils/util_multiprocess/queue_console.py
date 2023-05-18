@@ -5,7 +5,7 @@ from abc import abstractmethod
 from contextvars import ContextVar
 from multiprocessing.queues import Queue
 
-from watch_dog.utils.util_process import MultiShardObject
+from watch_dog.utils.util_multiprocess.multi_object import MultiShareObject
 from watch_dog.models.multi_objects.task_info import TaskInfo
 
 
@@ -16,7 +16,7 @@ class QueueBox(object):
 class QueueConsole(object):
     TASK_INFO_CONTEXT = ContextVar("task_info")
 
-    def __init__(self, global_worker_task: MultiShardObject,
+    def __init__(self, global_worker_task: MultiShareObject,
                  console_id: str = ""):
         self.global_worker_task = global_worker_task
         self.console_id = console_id
@@ -30,7 +30,7 @@ class QueueConsole(object):
         :return:
         """
         return QueueConsole(
-            global_worker_task=MultiShardObject(TaskInfo(task_name=console_id)),
+            global_worker_task=mp.Manager().TaskInfo(task_name=console_id),
             console_id=console_id
         )
 

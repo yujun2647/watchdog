@@ -7,7 +7,7 @@ import _posixshmem
 import multiprocessing as mp
 from queue import Empty
 from threading import Lock, Thread
-from watch_dog.utils.util_process import ProcessController
+from watch_dog.utils.util_multiprocess.process import ProcessController
 
 
 class ResourceTracker(object):

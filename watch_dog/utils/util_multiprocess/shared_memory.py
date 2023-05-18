@@ -6,14 +6,13 @@ documentation for details.
 
 __all__ = ['EnhanceSharedMemory']
 
-import time
 from functools import partial
 import mmap
 import os
 import errno
 import struct
 import secrets
-from .util_resource_tracker import ResourceTracker
+from watch_dog.utils.util_multiprocess.resource_tracker import ResourceTracker
 
 if os.name == "nt":
     import _winapi
@@ -70,8 +69,6 @@ class EnhanceSharedMemory:
     _flags = os.O_RDWR
     _mode = 0o600
     _prepend_leading_slash = True if _USE_POSIX else False
-
-
 
     def __init__(self, name=None, create=False, size=0):
         if not size >= 0:
@@ -247,7 +244,6 @@ class EnhanceSharedMemory:
             # unregister(self._name, "shared_memory")
             ResourceTracker.unregister(self._name)
             _posixshmem.shm_unlink(self._name)
-
 
 
 _encoding = "utf8"

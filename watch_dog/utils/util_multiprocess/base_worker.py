@@ -14,16 +14,14 @@ import setproctitle
 from watch_dog.configs.constants import (WorkerEnableState,
                                          WorkerState, WorkerWorkingState)
 from watch_dog.models.worker_req import WorkerReq, WorkerStartReq, WorkerEndReq
+from watch_dog.models.health_info import HealthRspInfo
+from watch_dog.models.multi_objects.task_info import TaskInfo
 
 from watch_dog.utils.util_history_object import HistoryObject
-from watch_dog.utils.util_queue import clear_queue_cache, FastQueue
-
-from watch_dog.models.multi_objects.strs import MultiTaskId, MultiWorkerName
-from watch_dog.models.multi_objects.task_info import TaskInfo
-from watch_dog.models.health_info import HealthRspInfo
-from watch_dog.utils.util_queue_console import QueueConsole
-from watch_dog.utils.util_process import (ProcessController, MultiShardObject,
-                                          WrapperMultiLock)
+from watch_dog.utils.util_multiprocess.queue import clear_queue_cache, FastQueue
+from watch_dog.utils.util_multiprocess.queue_console import QueueConsole
+from watch_dog.utils.util_multiprocess.process import ProcessController
+from watch_dog.utils.util_multiprocess.multi_object import MultiObject
 
 
 class BaseWorker(ABC):
@@ -70,16 +68,14 @@ class BaseWorker(ABC):
 
         self._health_req_queue: Optional[mp.Queue] = health_req_queue
         self._health_rsp_queue: Optional[mp.Queue] = health_rsp_queue
-        # 仅进程内部使用
-        self.__worker_name = MultiWorkerName(type(self).__name__)
         # 用于共享至别的进程
-        self._worker_name = MultiShardObject(self.__worker_name)
+        self._worker_name = MultiObject(type(self).__name__)
 
         # 工作进程要进行队列数据交互(get/put)或操作管道时，需先获取，
         # 同时外部要杀死工作进程时，也要先获取，
         # 防止在工作进程还在进行数据交互时杀死工作进程，导致数据损坏，从而导致队列/管道数据不可用
         # https://docs.python.org/zh-cn/3.9/library/multiprocessing.html?highlight=multiprocess#multiprocessing.Process.terminate
-        self.butcher_knife = WrapperMultiLock(type(self).__name__)
+        self.butcher_knife = mp.RLock()
 
         # 记录失效工作进程 pid
         self.dead_worker_pids = []
@@ -94,15 +90,10 @@ class BaseWorker(ABC):
         # 已处理数量， 如已分析数量、已写入视频帧数量
         # 实际调用 self.working_handled_num
         self._working_handled_num = mp.Value("i", 0)
-        # 用于进程内部使用
-        self.__last_working_task_id = MultiTaskId("")
         # 用于共享至别的进程
-        self._last_working_task_id = MultiShardObject(
-            self.__last_working_task_id)
-        # 用于进程内部使用
-        self.__working_task_id = MultiTaskId("")
+        self._last_working_task_id = MultiObject("")
         # 用于共享至别的进程
-        self._working_task_id = MultiShardObject(self.__working_task_id)
+        self._working_task_id = MultiObject("")
 
     def start_work_in_subprocess(self) -> mp.Process:
         self._worker = mp.Process(
@@ -212,10 +203,10 @@ class BaseWorker(ABC):
                             WorkerEndReq(req_msg=req_msg))
 
     def get_states_dict(self):
-        logging.debug(
-            f"pid:{os.getpid()}, thread：{threading.current_thread()}, "
-            f"getting states dict,"
-            f" lock status: {self.butcher_knife.__dict__}")
+        # logging.debug(
+        #     f"pid:{os.getpid()}, thread：{threading.current_thread()}, "
+        #     f"getting states dict,"
+        #     f" lock status: {self.butcher_knife.__dict__}")
         states_dict = dict(
             last_worker_pid=self.last_worker_pid,
             worker_pid=self.worker_pid,
@@ -229,9 +220,9 @@ class BaseWorker(ABC):
             last_working_task_id=self.last_working_task_id,
             working_task_id=self.working_task_id
         )
-        logging.debug(
-            f"pid:{os.getpid()}, thread：{threading.current_thread()}, "
-            f"get states dict done")
+        # logging.debug(
+        #     f"pid:{os.getpid()}, thread：{threading.current_thread()}, "
+        #     f"get states dict done")
         return states_dict
 
     def is_ready(self):
@@ -737,28 +728,15 @@ class BaseWorker(ABC):
 
     @property
     def worker_name(self):
-        _worker_name = self.__worker_name
-        with self.butcher_knife as thread_acquire_success:
-            if thread_acquire_success:
-                _worker_name = self._worker_name.get()
-        return _worker_name.value
+        return self._worker_name.value
 
     @property
     def last_working_task_id(self):
-        _last_working_task_id = self.__last_working_task_id
-        with self.butcher_knife as thread_acquire_success:
-            if thread_acquire_success:
-                _last_working_task_id = self._last_working_task_id.get()
-
-        return _last_working_task_id.value
+        return self._last_working_task_id.value
 
     @property
     def working_task_id(self):
-        _working_task_id = self.__working_task_id
-        with self.butcher_knife as thread_acquire_success:
-            if thread_acquire_success:
-                _working_task_id = self._working_task_id.get()
-        return _working_task_id.value
+        return self._working_task_id.value
 
     @worker_enable_state.setter
     def worker_enable_state(self, value):
@@ -793,21 +771,15 @@ class BaseWorker(ABC):
 
     @last_working_task_id.setter
     def last_working_task_id(self, task_id):
-        with self.butcher_knife as thread_acquire_success:
-            if thread_acquire_success:
-                self._last_working_task_id.update_attr("value", task_id)
+        self._last_working_task_id.value = task_id
 
     @working_task_id.setter
     def working_task_id(self, task_id):
-        with self.butcher_knife as thread_acquire_success:
-            if thread_acquire_success:
-                self._working_task_id.update_attr("value", task_id)
+        self._working_task_id.value = task_id
 
     @worker_name.setter
     def worker_name(self, name):
-        with self.butcher_knife as thread_acquire_success:
-            if thread_acquire_success:
-                self._worker_name.update_attr("value", name)
+        self._worker_name.value = name
 
     def simple_test(self):
         self.start_work_in_subprocess()
