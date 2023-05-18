@@ -69,7 +69,7 @@ if __name__ == "__main__":
 
         def _handle_start_req(self, work_req: WorkerStartReq) -> bool:
             time.sleep(1)
-            self.working_handled_num += 1
+            self.plus_working_handled_num()
             print(f"handled start req, working_handled_num: "
                   f"{self.working_handled_num}, {self.test_value.value}")
             # 可提前结束
@@ -80,7 +80,7 @@ if __name__ == "__main__":
 
         def _handle_end_req(self, work_req: WorkerEndReq) -> bool:
             time.sleep(1)
-            self.working_handled_num += 1
+            self.plus_working_handled_num()
             print(f"handled end req: self.working_handled_num: "
                   f"{self.working_handled_num}")
             return True

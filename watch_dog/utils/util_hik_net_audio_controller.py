@@ -209,7 +209,7 @@ class HIKNetAudioController(BaseWorker):
             if audio_play_queue_req_force is not None:
                 if self.is_play_switch_on:
                     self._play_audio_by_slices(audio_play_queue_req_force)
-                    self.working_handled_num += 1
+                    self.plus_working_handled_num()
                 continue
 
             audio_play_req: Optional[AudioPlayReq] = self.get_queue_item(
@@ -221,7 +221,7 @@ class HIKNetAudioController(BaseWorker):
 
             if self.is_play_switch_on:
                 self._play_audio_by_slices(audio_play_req)
-                self.working_handled_num += 1
+                self.plus_working_handled_num()
                 time.sleep(20 / 1000.0)
 
     def _handle_start_req(self, work_req: WorkerStartReq) -> bool:

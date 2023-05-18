@@ -36,7 +36,7 @@ class CommonDetector(WDBaseWorker):
         self.put_queue_item(self.q_console.detect_infos_sense_queue,
                             d_infos, force_put=True)
 
-        self.working_handled_num += 1
+        self.plus_working_handled_num()
         return False
 
     def _handle_end_req(self, work_req: WorkerEndReq) -> bool:

@@ -174,7 +174,7 @@ class Monitor(WDBaseWorker):
             for op_inst in op_inst_list:
                 print(op_inst.__dict__)
                 op_inst.handle(q_console=self.q_console)
-            self.working_handled_num += 1
+            self.plus_working_handled_num()
             print(f"""
         self.car_state: {CarMonitorState.get_name(self.car_state)}
         self.person_state: {PersonMonitorState.get_name(self.person_state)}

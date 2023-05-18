@@ -98,7 +98,7 @@ class VidRec(WDBaseWorker):
             return False
         elif isinstance(frame_box.frame, np.ndarray):
             self.video_writer.write(frame_box.frame)
-            self.working_handled_num += 1
+            self.plus_working_handled_num()
         else:
             logging.warning(f"[{self.worker_name}] Wrong type frame, "
                             f"not ndarray but {type(frame_box.frame)}")

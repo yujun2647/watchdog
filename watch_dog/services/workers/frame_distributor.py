@@ -24,7 +24,7 @@ class FrameDistributor(WDBaseWorker):
             self.put_queue_item(self.q_console.frame4common_detect_queue,
                                 frame_box, force_put=True)
 
-            self.working_handled_num += 1
+            self.plus_working_handled_num()
 
         return False
 

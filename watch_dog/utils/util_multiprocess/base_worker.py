@@ -192,6 +192,10 @@ class BaseWorker(ABC):
         finally:
             self._clear_all_output_queues()
 
+    def plus_working_handled_num(self):
+        with self._working_handled_num.get_lock():
+            self._working_handled_num.value += 1
+
     def send_start_work_req(self, req_msg=None):
         """发送工作开始请求"""
         self.put_queue_item(self._work_req_queue,
@@ -591,7 +595,7 @@ class BaseWorker(ABC):
         """
         logging.info(f"[{self.worker_name}] handling start req")
         time.sleep(1)
-        self.working_handled_num += 1
+        self.plus_working_handled_num()
         return False
 
     @abstractmethod
@@ -806,7 +810,7 @@ if __name__ == "__main__":
 
         def _handle_start_req(self, work_req: WorkerStartReq) -> bool:
             time.sleep(1)
-            self.working_handled_num += 1
+            self.plus_working_handled_num()
             print(f"handled start req, working_handled_num: "
                   f"{self.working_handled_num}")
             # 可提前结束
@@ -817,7 +821,7 @@ if __name__ == "__main__":
 
         def _handle_end_req(self, work_req: WorkerEndReq) -> bool:
             time.sleep(1)
-            self.working_handled_num += 1
+            self.plus_working_handled_num()
             print(f"handled end req: self.working_handled_num: "
                   f"{self.working_handled_num}")
             return True
