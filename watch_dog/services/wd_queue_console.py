@@ -1,5 +1,6 @@
 from typing import *
 import multiprocessing as mp
+from multiprocessing.synchronize import Event as MEvent
 
 import cv2
 
@@ -47,6 +48,10 @@ class WdQueueConsole(QueueConsole):
 
         # 相机对象
         self.camera = camera
+
+        # 相机重启信号
+        self.camera_restart_sig: MEvent = mp.Event()
+
         self.live_frame: Optional[FrameBox] = None
 
         # 用于存放已标注/渲染后的帧
@@ -72,6 +77,12 @@ class WdQueueConsole(QueueConsole):
         self.recorder_req_queue = FastQueue(name="record_frame_queue")
 
         self.monitor_states = MonitorStates()
+
+    def restart_camera(self, proxy=True):
+        if not proxy:
+            self.camera.restart()
+            return
+        self.camera_restart_sig.set()
 
     def start_vid_record(self, tag):
         print("start recording")

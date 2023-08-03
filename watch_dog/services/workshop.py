@@ -4,6 +4,7 @@ import logging
 from queue import Empty, Queue as TQueue
 from threading import Event as TEvent, Lock as TLock
 
+from watch_dog.server.custom_server import EnhanceThreadedWSGIServer
 from watch_dog.configs.constants import CameraConfig
 
 from watch_dog.utils.util_camera import FrameBox
@@ -75,6 +76,16 @@ class WorkShop(object):
 
         # self.preloading_live_frame()
         self.preloading_live_frame2()
+        self.monitor_camera_restart_sig()
+
+    @new_thread
+    def monitor_camera_restart_sig(self):
+        while True:
+            if self.q_console.camera_restart_sig.wait(timeout=5):
+                EnhanceThreadedWSGIServer.add_service_action(
+                    action_callback=self.q_console.camera.restart
+                )
+                self.q_console.camera_restart_sig.clear()
 
     @property
     def live_frame(self) -> FrameBox:
