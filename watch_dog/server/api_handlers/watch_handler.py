@@ -4,7 +4,6 @@ import json
 import logging
 import traceback
 from queue import Empty
-from threading import Event as TEvent
 
 import cv2
 import numpy as np
