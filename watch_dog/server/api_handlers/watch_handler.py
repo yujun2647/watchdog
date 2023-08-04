@@ -111,7 +111,8 @@ class WatchCameraHandler(BaseHandler):
         return cls.WORKSHOP_MAP.get(camera_address, None)
 
     def get(self):
-        return "working"
+        return dict(server="watchdog",
+                    version=os.environ.get("VERSION"))
 
 
 @Route("/stream")
