@@ -853,13 +853,15 @@ class MultiprocessCamera(object):
 
         logging.debug(f"Camera buffer clear complete")
 
-    def _init_audio_worker(self):
+    def _init_audio_worker(self, hc=None):
         if not CameraAddressUtil.is_hik_web_cam_address(address=self.address):
             return
         if not self.wait_connected(timeout=10):
             return
-        hc = HIKNetAudioController()
-        hc.start_work_in_subprocess()
+
+        if hc is None:
+            hc = HIKNetAudioController()
+            hc.start_work_in_subprocess()
 
         parse_ret = urlparse(self.address)
         hc.send_start_work_req(host=parse_ret.hostname,
@@ -920,6 +922,7 @@ class MultiprocessCamera(object):
 
         if self.audio_worker is not None:
             self.audio_worker.restart_worker()
+            self._init_audio_worker(self.audio_worker)
 
     def release(self):
         # noinspection PyBroadException
