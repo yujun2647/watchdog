@@ -5,6 +5,7 @@ import numpy as np
 import cv2
 from typing import *
 
+from watch_dog.utils.util_time import get_bj_time
 from watch_dog.models.detect_info import DetectInfo
 from watch_dog.utils.util_log import time_cost_log_with_desc
 from watch_dog.utils.util_camera import FrameBox
@@ -54,10 +55,16 @@ class YoloDetector(object):
         bboxes = list(bboxes)
         confidences = list(np.array(confidences).reshape(1, -1)[0])
         confidences = list(map(float, confidences))
-        # todo 白天 score_threshold=0.5, nms_threshold=0.2
-        # 晚上 score_threshold=0.55  nms_threshold=0.2
-        bboxes_idx = cv2.dnn.NMSBoxes(bboxes, confidences, score_threshold=0.55,
-                                      nms_threshold=0.2)
+        now_time = get_bj_time()
+        if 8 <= now_time.hour <= 18:
+            score_threshold = 0.5
+            nms_threshold = 0.2
+        else:
+            score_threshold = 0.55
+            nms_threshold = 0.2
+        bboxes_idx = cv2.dnn.NMSBoxes(bboxes, confidences,
+                                      score_threshold=score_threshold,
+                                      nms_threshold=nms_threshold)
         width, height = frame_box.frame_size()
         detect_infos = []
         if len(bboxes_idx) != 0:
