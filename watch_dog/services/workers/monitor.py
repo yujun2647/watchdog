@@ -1,4 +1,5 @@
 import time
+import logging
 from typing import *
 
 import multiprocessing as mp
@@ -170,17 +171,25 @@ class Monitor(WDBaseWorker):
 
         op_inst_list = self._gen_op_inst(has_car=has_car, has_person=has_person)
         if op_inst_list:
-            print("------------------------------------------\n\n")
+            op_inst_str_list = []
             for op_inst in op_inst_list:
-                print(op_inst.__dict__)
+                op_inst_str_list.append(str(op_inst.__dict__))
                 op_inst.handle(q_console=self.q_console)
             self.plus_working_handled_num()
-            print(f"""
+            op_inst_str = "\n".join(op_inst_str_list)
+
+            logging.info(f"""
+--------------------------------------------------------------
+
+        op_inst_list: 
+            {op_inst_str}
+        
         self.car_state: {CarMonitorState.get_name(self.car_state)}
         self.person_state: {PersonMonitorState.get_name(self.person_state)}
+        
+--------------------------------------------------------------
             """)
 
-            print("------------------------------------------\n\n")
         return False
 
     def _handle_end_req(self, work_req: WorkerEndReq) -> bool:
