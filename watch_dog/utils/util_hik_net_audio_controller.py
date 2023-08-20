@@ -15,6 +15,7 @@ import logging
 from typing import *
 from ctypes import *
 import multiprocessing as mp
+from multiprocessing.synchronize import Event as MEvent
 from threading import Thread, Event as TEvent
 
 from tqdm import tqdm
@@ -77,6 +78,8 @@ class HIKNetAudioController(BaseWorker):
         self._history_heartbeat_thread_stop_signal: Optional[List[TEvent]] = []
         self._keep_heartbeat_thread: Optional[Thread] = None
         self._play_done_signal_for_heartbeat = mp.Event()
+
+        self._disconnect_signal: MEvent = mp.Event()
 
     @property
     def is_play_switch_on(self):
@@ -201,6 +204,9 @@ class HIKNetAudioController(BaseWorker):
 
     def listening_play_audio_req(self):
         while True:
+            if self._disconnect_signal.is_set():
+                self._disconnect_signal.clear()
+                break
             audio_play_queue_req_force: Optional[
                 AudioPlayReq] = self.get_queue_item(
                 queue=self._audio_play_queue_req_force,
@@ -279,6 +285,13 @@ class HIKNetAudioController(BaseWorker):
     def _sub_clear_all_output_queues(self):
         if self._hc_sdk is not None:
             self._hc_sdk.release()
+
+    def restart_worker(self) -> mp.Process:
+        self._disconnect_signal.set()
+        proc = super().restart_worker()
+        if self._disconnect_signal.is_set():
+            self._disconnect_signal.clear()
+        return proc
 
 
 if __name__ == "__main__":

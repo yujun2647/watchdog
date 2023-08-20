@@ -1,9 +1,13 @@
+import time
+import logging
 from typing import *
 import multiprocessing as mp
+from multiprocessing.synchronize import Event as MEvent
 
 import cv2
 
-from watch_dog.configs.constants import CarMonitorState, PersonMonitorState
+from watch_dog.configs.constants import (CarMonitorState, PersonMonitorState,
+                                         CameraConfig)
 
 from watch_dog.utils.util_multiprocess.queue import FastQueue
 from watch_dog.utils.util_camera import MultiprocessCamera, FrameBox
@@ -33,6 +37,18 @@ class MonitorStates(ShareStates):
                 or self.person_state.value == PersonMonitorState.POSITIVE)
 
 
+class LatestViewTime(ShareStates):
+
+    def __init__(self):
+        self._v_time = mp.Value("d", time.time() - 60)
+
+    def update(self):
+        self._v_time.value = time.time()
+
+    def is_live(self):
+        return time.time() - self._v_time.value < 10
+
+
 class WdQueueConsole(QueueConsole):
 
     def __init__(self, camera: "MultiprocessCamera",
@@ -47,6 +63,10 @@ class WdQueueConsole(QueueConsole):
 
         # 相机对象
         self.camera = camera
+
+        # 相机重启信号
+        self.camera_restart_sig: MEvent = mp.Event()
+
         self.live_frame: Optional[FrameBox] = None
 
         # 用于存放已标注/渲染后的帧
@@ -71,7 +91,41 @@ class WdQueueConsole(QueueConsole):
 
         self.recorder_req_queue = FastQueue(name="record_frame_queue")
 
+        # 目标监控状态
         self.monitor_states = MonitorStates()
+
+        # 客户端最新查看时间, 用来判断是否有客户端正在查看摄像头
+        self.latest_view_time = LatestViewTime()
+
+        self._cam_adj_value = mp.Value("i", 0)
+        self._cam_adj_lock = mp.Lock()
+
+    def cam_viewing(self):
+        return self.latest_view_time.is_live()
+
+    def active_camera(self, tag=""):
+        with self._cam_adj_lock:
+            self._cam_adj_value.value += 1
+            logging.info(
+                f"[camera adjust][active camera][{tag}]: "
+                f"self._cam_adj_value.value: {self._cam_adj_value.value}")
+            if self._cam_adj_value.value == 1:
+                self.camera.adjust_camera_fps(CameraConfig.ACTIVE_FPS.value)
+
+    def rest_camera(self, tag=""):
+        with self._cam_adj_lock:
+            self._cam_adj_value.value -= 1
+            logging.info(
+                f"[camera adjust][rest camera][{tag}]: "
+                f"self._cam_adj_value.value: {self._cam_adj_value.value}")
+            if self._cam_adj_value.value == 0:
+                self.camera.adjust_camera_fps(CameraConfig.REST_FPS.value)
+
+    def restart_camera(self, proxy=True):
+        if not proxy:
+            self.camera.restart()
+            return
+        self.camera_restart_sig.set()
 
     def start_vid_record(self, tag):
         print("start recording")

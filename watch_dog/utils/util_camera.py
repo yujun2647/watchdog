@@ -22,8 +22,10 @@ from watch_dog.utils.util_log import time_cost_log
 from watch_dog.utils.util_os import run_sys_command
 from watch_dog.utils.util_thread import execute_by_thread
 from watch_dog.utils.util_v4l2 import get_videocap_devices
-from watch_dog.utils.util_multiprocess.process import new_process
-from watch_dog.utils.util_multiprocess.queue import clear_queue, FastQueue
+from watch_dog.utils.util_multiprocess.process import (
+    new_process, ProcessController)
+from watch_dog.utils.util_multiprocess.queue import (clear_queue, FastQueue,
+                                                     clear_queue_cache)
 from watch_dog.utils.util_net import is_connected, get_host_name
 from watch_dog.utils.util_hik_net_audio_controller import HIKNetAudioController
 from watch_dog.models.health_info import HealthRspInfo
@@ -375,6 +377,7 @@ class MultiprocessCamera(object):
         self.project_name = os.environ.get("PROJECT_NAME", "")
         self.address = address
         self.set_params = set_params
+        self.butcher_knife = mp.RLock()
         # self.store_queue: mp.Queue = mp.Queue(15)
         self.store_queue: FastQueue = FastQueue(
             15, name="camera_store_queue")
@@ -772,6 +775,8 @@ class MultiprocessCamera(object):
         try:
             last_frame = None
             while True:
+                with self.butcher_knife:
+                    pass
                 self._health_check()
                 self._check_camera_params_adjust_signal()
                 self._check_switch_camera_signal()
@@ -795,14 +800,16 @@ class MultiprocessCamera(object):
                     if self.store_queue.full():
                         # 保持读取摄像头最新的数据
                         self.store_queue.abandon_one()
-                    self.store_queue.put(frame_box)
+                    with self.butcher_knife:
+                        self.store_queue.put(frame_box)
                 elif (CameraAddressUtil.is_file_address(self.address)
                       and last_frame is not None):
                     if self.store_queue.full():
                         self.store_queue.abandon_one()
                     last_frame.frame_id = unique_time_id()
                     last_frame.frame_ctime = time.perf_counter()
-                    self.store_queue.put(last_frame)
+                    with self.butcher_knife:
+                        self.store_queue.put(last_frame)
                 elif self.read_failed_count > self.READ_FRAME_FAILED_TOLERATE:
                     logging.warning(
                         f"[camera]: read frame failed, "
@@ -846,13 +853,15 @@ class MultiprocessCamera(object):
 
         logging.debug(f"Camera buffer clear complete")
 
-    def _init_audio_worker(self):
+    def _init_audio_worker(self, hc=None):
         if not CameraAddressUtil.is_hik_web_cam_address(address=self.address):
             return
         if not self.wait_connected(timeout=10):
             return
-        hc = HIKNetAudioController()
-        hc.start_work_in_subprocess()
+
+        if hc is None:
+            hc = HIKNetAudioController()
+            hc.start_work_in_subprocess()
 
         parse_ret = urlparse(self.address)
         hc.send_start_work_req(host=parse_ret.hostname,
@@ -892,14 +901,28 @@ class MultiprocessCamera(object):
         if self.audio_worker is not None:
             self.audio_worker.play_audio(audio_file)
 
+    def start_view_worker(self):
+        self.view_worker = mp.Process(target=self.reading_frames)
+        self.view_worker.daemon = False
+        self.view_worker.start()
+
     def start(self):
         if self.view_worker is None:
-            self.view_worker = mp.Process(target=self.reading_frames)
-            self.view_worker.daemon = False
-            self.view_worker.start()
+            self.start_view_worker()
 
         if self.audio_worker is None:
             self.audio_worker = self._init_audio_worker()
+
+    def restart(self):
+        with self.butcher_knife:
+            clear_queue_cache(self.store_queue, "camera_store_queue")
+            ProcessController.kill_process(self.view_worker.pid)
+
+        self.start_view_worker()
+
+        if self.audio_worker is not None:
+            self.audio_worker.restart_worker()
+            self._init_audio_worker(self.audio_worker)
 
     def release(self):
         # noinspection PyBroadException
@@ -1161,8 +1184,10 @@ if __name__ == "__main__":
     mvc.register_camera(ADDRESS4, SET_PARAMS)
     # mvc.get_camera(ADDRESS4).play_audio("/home/walkerjun/下载/chuanqi.m4a")
 
-    time.sleep(100)
-    #mvc.show_camera(ADDRESS4)
+    mvc.show_camera_async(ADDRESS4)
+    while True:
+        time.sleep(5)
+        mvc.get_camera(ADDRESS4).restart()
     #
     # mvc.save_video(ADDRESS4, frame_num=250, save_path="./test_continue.mp4")
     # mvc.adjust_params(ADDRESS4, SET_PARAMS2)

@@ -37,7 +37,6 @@ class Timer(object):
 
     def reset_timer(self):
         self._start_timestamp = time.time()
-        logging.info("reset")
 
 
 def datetime2date_str(_time: datetime):

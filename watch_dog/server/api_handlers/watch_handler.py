@@ -4,7 +4,6 @@ import json
 import logging
 import traceback
 from queue import Empty
-from threading import Event as TEvent
 
 import cv2
 import numpy as np
@@ -112,7 +111,8 @@ class WatchCameraHandler(BaseHandler):
         return cls.WORKSHOP_MAP.get(camera_address, None)
 
     def get(self):
-        return "working"
+        return dict(server="watchdog",
+                    version=os.environ.get("VERSION"))
 
 
 @Route("/stream")
@@ -123,7 +123,6 @@ class WatchStream(WatchCameraHandler):
         self.work_shop = self.get_workshop()
         self.q_console = self.work_shop.q_console
         self.last: Optional[FrameBox] = None
-        self.frame_queue = self.work_shop.register_view_request()
 
     @classmethod
     def make_ok_response(cls, view_request_gen):
@@ -137,17 +136,6 @@ class WatchStream(WatchCameraHandler):
         encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 20]
         result, jpeg = cv2.imencode('.jpg', frame, encode_param)
         return jpeg.tobytes()
-
-    def get_byte_frame(self):
-        try:
-            if self.last is None and self.q_console.live_frame is not None:
-                frame_box = self.q_console.live_frame
-            else:
-                frame_box = self.frame_queue.get(timeout=5)
-            self.last = frame_box
-            return self.encode(frame_box.frame)
-        except Empty:
-            return
 
     def get_byte_frame2(self):
         try:
@@ -169,20 +157,17 @@ class WatchStream(WatchCameraHandler):
         byte_frame = None
         while True:
             try:
-                self.work_shop.consuming_req_event.set()
+                self.q_console.latest_view_time.update()
                 byte_frame = self.get_byte_frame2()
-
             except Exception as exp:
                 logging.error(f"{exp}, {traceback.format_exc()}")
             if byte_frame is not None:
-                self.work_shop.consuming_req_event.clear()
                 yield (
                         b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n"
                         + byte_frame + b"\r\n\r\n"
                 )
 
     def get(self):
-        self.work_shop.notify_consume_req()
         return self.handle_view_request()
 
 

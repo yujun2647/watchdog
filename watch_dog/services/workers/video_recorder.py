@@ -48,7 +48,6 @@ class VidRec(WDBaseWorker):
         )
 
     def _update_vid_rec_req_info(self, work_req: VidRecStartReq):
-        self.q_console.camera.adjust_camera_fps(work_req.active_fps)
         if self.rec_req is None:
             self.rec_req = work_req
             return
@@ -74,6 +73,7 @@ class VidRec(WDBaseWorker):
         :return:
         """
         self._clean_expired_videos()
+        self.q_console.active_camera(tag="start record video")
         self._update_vid_rec_req_info(work_req)
         self._update_video_writer()
 
@@ -92,7 +92,8 @@ class VidRec(WDBaseWorker):
         """
 
         frame_box: FrameBox = self.get_queue_item(
-            self.frame_queue, queue_name="frame_queue")
+            self.frame_queue, queue_name="frame_queue",
+            timeout=0.2)
 
         if frame_box is None:
             return False
@@ -129,7 +130,7 @@ class VidRec(WDBaseWorker):
                          f"remain: {self.frame_queue.qsize()}")
 
         if self.rec_req is not None:
-            self.q_console.camera.adjust_camera_fps(self.rec_req.rest_fps)
+            self.q_console.rest_camera(tag="video record end")
             self.rec_req: Optional[VidRecStartReq] = None
 
     def _sub_clear_all_output_queues(self):

@@ -4,9 +4,13 @@ from watch_dog.services.base.wd_base_worker import WDBaseWorker
 
 
 class FrameDistributor(WDBaseWorker):
+    MAX_CAM_FETCH_FAILED = 3
 
     def __sub_init__(self, **kwargs):
         self.camera_frame_queue = self.q_console.camera.store_queue
+
+        # 相机图像帧获取失败次数, 连续失败 {MAX_CAM_FETCH_FAILED} 次, 则重启相机
+        self.cam_fetch_failed_count = 0
 
     def _sub_work_before_cleaned_up(self, work_req):
         pass
@@ -18,6 +22,7 @@ class FrameDistributor(WDBaseWorker):
         frame_box: FrameBox = self.get_queue_item(self.camera_frame_queue,
                                                   timeout=5, wait_item=True)
         if frame_box is not None:
+            self.cam_fetch_failed_count = 0
             frame_box.put_delay_text(tag="import")
             self.put_queue_item(self.q_console.frame4mark_queue, frame_box,
                                 force_put=True)
@@ -25,6 +30,12 @@ class FrameDistributor(WDBaseWorker):
                                 frame_box, force_put=True)
 
             self.plus_working_handled_num()
+        else:
+            self.cam_fetch_failed_count += 1
+
+        if self.cam_fetch_failed_count >= self.MAX_CAM_FETCH_FAILED:
+            # 重启相机
+            self.q_console.restart_camera(proxy=True)
 
         return False
 
