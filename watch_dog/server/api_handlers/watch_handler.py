@@ -133,7 +133,7 @@ class WatchStream(WatchCameraHandler):
 
     @classmethod
     def encode(cls, frame: np.ndarray):
-        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 20]
+        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 17]
         result, jpeg = cv2.imencode('.jpg', frame, encode_param)
         return jpeg.tobytes()
 
