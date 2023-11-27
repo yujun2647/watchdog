@@ -80,12 +80,17 @@ class ProcessController(object):
     @classmethod
     @ignore_assigned_error((FileNotFoundError, NoSuchProcess))
     def kill_process(cls, pid=None):
+        logging.info(f"[ProcessController] killing process: {pid}")
         pid = pid if pid is not None else os.getpid()
         this_process = psutil.Process(pid)
         cls.kill_sub_processes(this_process.pid)
         time.sleep(0.1)
         os.kill(this_process.pid, signal.SIGINT)
+        logging.info(f"[ProcessController] sent signal.SIGINT to {pid}")
+        logging.info(f"[ProcessController] waiting {pid}")
         os.waitpid(this_process.pid, 0)
+        logging.info(f"[ProcessController] wait end {pid}")
+        logging.info(f"[ProcessController] killed process: {pid}")
         # this_process.terminate()
         # this_process.wait(timeout=1)
 

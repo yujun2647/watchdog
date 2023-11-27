@@ -125,7 +125,8 @@ class WdQueueConsole(QueueConsole):
         if not proxy:
             self.camera.restart()
             return
-        self.camera_restart_sig.set()
+        if not self.camera_restart_sig.is_set():
+            self.camera_restart_sig.set()
 
     def start_vid_record(self, tag):
         print("start recording")

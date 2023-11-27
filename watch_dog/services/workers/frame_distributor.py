@@ -36,6 +36,7 @@ class FrameDistributor(WDBaseWorker):
         if self.cam_fetch_failed_count >= self.MAX_CAM_FETCH_FAILED:
             # 重启相机
             self.q_console.restart_camera(proxy=True)
+            self.cam_fetch_failed_count = 0
 
         return False
 

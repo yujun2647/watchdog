@@ -490,7 +490,8 @@ class MultiprocessCamera(object):
             self._fake_read_time()
         # if address:
         #     logger.debug(f"read frame from {address}")
-        return stream.read()
+        with self.butcher_knife:
+            return stream.read()
 
     def is_ip_camera(self):
         return not str(self.address).isdigit()
@@ -590,31 +591,33 @@ class MultiprocessCamera(object):
 
     @time_cost_log
     def _init_stream(self) -> cv2.VideoCapture:
-        logging.info(f"init stream for {self.address}")
-        if CameraAddressUtil.is_usb_camera(self.address):
-            CameraAddressUtil.force_release_usb_camera(self.address)
+        with self.butcher_knife:
+            logging.info(f"init stream for {self.address}")
+            if CameraAddressUtil.is_usb_camera(self.address):
+                CameraAddressUtil.force_release_usb_camera(self.address)
 
-        if CameraAddressUtil.is_web_cam_address(self.address):
-            stream = RTSPCapture(self.address)
-        else:
-            stream = cv2.VideoCapture(self.address)
+            if CameraAddressUtil.is_web_cam_address(self.address):
+                stream = RTSPCapture(self.address)
+            else:
+                stream = cv2.VideoCapture(self.address)
 
-        self._init_camera_params(stream)
+            self._init_camera_params(stream)
 
-        if stream.isOpened():
-            # 连接上了，但是不一定读取到视频帧了，还不能设置为已连接，
-            # 当真正读取到视频帧后，才能设置为已连接
-            self._connect_confirm_timer_task.reset_timer()
-            logging.info("[camera] set _connect_confirm_timer_task")
-            logging.info("[camera] stream connected, but not real connected")
-            logging.info(f""" [camera] stream camera params
-            video_height: {int(stream.get(cv2.CAP_PROP_FRAME_HEIGHT))}
-            video_width: {int(stream.get(cv2.CAP_PROP_FRAME_WIDTH))}
-            video_fps: {stream.get(cv2.CAP_PROP_FPS)}
-            """)
-            MultiprocessCamera.VIDEO_PATH_TEST_FPS = self.video_fps
-        self._reset()
-        return stream
+            if stream.isOpened():
+                # 连接上了，但是不一定读取到视频帧了，还不能设置为已连接，
+                # 当真正读取到视频帧后，才能设置为已连接
+                self._connect_confirm_timer_task.reset_timer()
+                logging.info("[camera] set _connect_confirm_timer_task")
+                logging.info("[camera] stream connected, but not real "
+                             "connected")
+                logging.info(f""" [camera] stream camera params
+                video_height: {int(stream.get(cv2.CAP_PROP_FRAME_HEIGHT))}
+                video_width: {int(stream.get(cv2.CAP_PROP_FRAME_WIDTH))}
+                video_fps: {stream.get(cv2.CAP_PROP_FPS)}
+                """)
+                MultiprocessCamera.VIDEO_PATH_TEST_FPS = self.video_fps
+            self._reset()
+            return stream
 
     def is_connected(self):
         return self.connect_flag.value > 0
@@ -769,10 +772,11 @@ class MultiprocessCamera(object):
             self._frame_fsp_index = 1
 
     def reading_frames(self):
-        print(f"camera: {self.address} pid: {os.getpid()}")
-        self.stream: cv2.VideoCapture = self._init_stream()
-        setproctitle.setproctitle(f"{self.project_name}-Camera")
         try:
+            print(f"camera: {self.address} pid: {os.getpid()}")
+            self.stream: cv2.VideoCapture = self._init_stream()
+            setproctitle.setproctitle(f"{self.project_name}-Camera")
+
             last_frame = None
             while True:
                 with self.butcher_knife:
@@ -914,9 +918,12 @@ class MultiprocessCamera(object):
             self.audio_worker = self._init_audio_worker()
 
     def restart(self):
+        logging.info(f"[camera] killing view_worker: "
+                     f"{self.view_worker.pid}")
         with self.butcher_knife:
             clear_queue_cache(self.store_queue, "camera_store_queue")
             ProcessController.kill_process(self.view_worker.pid)
+            logging.info(f"[camera] killed view_worker: {self.view_worker.pid}")
 
         self.start_view_worker()
 
@@ -1173,14 +1180,15 @@ if __name__ == "__main__":
         cv2.CAP_PROP_EXPOSURE: 25,  # 曝光为手动模式时设置的曝光值， 若为自动，则这个值无效
     }
 
-    SET_PARAMS2 = {
-        cv2.CAP_PROP_FPS: 5,
-        cv2.CAP_PROP_AUTO_EXPOSURE: 3,  # 曝光模式设置， 1：手动； 3: 自动
-        cv2.CAP_PROP_EXPOSURE: 25,  # 曝光为手动模式时设置的曝光值， 若为自动，则这个值无效
-    }
+    # SET_PARAMS2 = {
+    #     cv2.CAP_PROP_FPS: 5,
+    #     cv2.CAP_PROP_AUTO_EXPOSURE: 3,  # 曝光模式设置， 1：手动； 3: 自动
+    #     cv2.CAP_PROP_EXPOSURE: 25,  # 曝光为手动模式时设置的曝光值， 若为自动，则这个值无效
+    # }
 
     ADDRESS4 = "0"
     # ADDRESS4 = 0
+
     mvc.register_camera(ADDRESS4, SET_PARAMS)
     # mvc.get_camera(ADDRESS4).play_audio("/home/walkerjun/下载/chuanqi.m4a")
 

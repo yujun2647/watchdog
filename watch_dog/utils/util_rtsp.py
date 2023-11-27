@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 import av
@@ -110,7 +111,8 @@ class RTSPCapture(object):
         return False, None
 
     def release(self):
-        self._container.close()
+        if hasattr(self, "_container"):
+            self._container.close()
 
     @property
     def video_fps(self) -> int:
