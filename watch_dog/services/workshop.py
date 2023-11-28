@@ -76,6 +76,7 @@ class WorkShop(object):
             if self.q_console.camera_restart_sig.wait(timeout=5):
                 EnhanceThreadedWSGIServer.add_service_action(
                     action_callback=self.q_console.camera.restart,
+                    kwargs=dict(timeout=60),
                     timeout=60
                 )
                 self.q_console.camera_restart_sig.clear()
