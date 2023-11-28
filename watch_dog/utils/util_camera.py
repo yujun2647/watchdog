@@ -897,8 +897,10 @@ class MultiprocessCamera(object):
     def wait_connected(self, timeout=10) -> bool:
         for _ in range(timeout * 10):
             if self.is_connected():
+                logging.info(f"[camera] wait_connected, confirmed connection")
                 return True
             time.sleep(0.1)
+        logging.info("[camera] wait_connected, camera is still not connected")
         return False
 
     def play_audio(self, audio_file):
@@ -906,6 +908,7 @@ class MultiprocessCamera(object):
             self.audio_worker.play_audio(audio_file)
 
     def start_view_worker(self):
+        self.connect_flag.value = 0
         self.view_worker = mp.Process(target=self.reading_frames)
         self.view_worker.daemon = False
         self.view_worker.start()
@@ -917,10 +920,12 @@ class MultiprocessCamera(object):
         if self.audio_worker is None:
             self.audio_worker = self._init_audio_worker()
 
-    def restart(self):
+    def restart(self, timeout=60):
         logging.info(f"[camera] killing view_worker: "
                      f"{self.view_worker.pid}")
         with self.butcher_knife:
+            logging.info(f"[camera] killing view_worker: "
+                         f"{self.view_worker.pid} [butcher_knife gained]")
             clear_queue_cache(self.store_queue, "camera_store_queue")
             ProcessController.kill_process(self.view_worker.pid)
             logging.info(f"[camera] killed view_worker: {self.view_worker.pid}")
@@ -930,6 +935,8 @@ class MultiprocessCamera(object):
         if self.audio_worker is not None:
             self.audio_worker.restart_worker()
             self._init_audio_worker(self.audio_worker)
+
+        self.wait_connected(timeout)
 
     def release(self):
         # noinspection PyBroadException
