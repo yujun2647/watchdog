@@ -35,6 +35,9 @@ __all__ = [
     "MultiprocessVideoCapture"
 ]
 
+if TYPE_CHECKING:
+    from threading import RLock
+
 
 class _CameraRegisteredError(Exception):
     pass
@@ -377,7 +380,7 @@ class MultiprocessCamera(object):
         self.project_name = os.environ.get("PROJECT_NAME", "")
         self.address = address
         self.set_params = set_params
-        self.butcher_knife = mp.RLock()
+        self.butcher_knife: "RLock" = mp.RLock()
         # self.store_queue: mp.Queue = mp.Queue(15)
         self.store_queue: FastQueue = FastQueue(
             15, name="camera_store_queue")
@@ -923,6 +926,15 @@ class MultiprocessCamera(object):
     def restart(self, timeout=60):
         logging.info(f"[camera] killing view_worker: "
                      f"{self.view_worker.pid}")
+        # force to release it
+        # camera butcher_knife not release by other process, probably was view
+        # worker, blocking at read frame or something else using pyav,
+        # which is all handled within self.butcher_knife, so force release it
+        if not self.butcher_knife.acquire(timeout=timeout):
+            self.butcher_knife.release()
+            logging.warning("[camera] camera butcher_knife not release by "
+                            "other process, so force release it")
+
         with self.butcher_knife:
             logging.info(f"[camera] killing view_worker: "
                          f"{self.view_worker.pid} [butcher_knife gained]")
