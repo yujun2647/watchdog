@@ -26,6 +26,7 @@ from watch_dog.utils.util_multiprocess.process import (
     new_process, ProcessController)
 from watch_dog.utils.util_multiprocess.queue import (clear_queue, FastQueue,
                                                      clear_queue_cache)
+from watch_dog.utils.util_multiprocess.lock import BetterRLock
 from watch_dog.utils.util_net import is_connected, get_host_name
 from watch_dog.utils.util_hik_net_audio_controller import HIKNetAudioController
 from watch_dog.models.health_info import HealthRspInfo
@@ -380,7 +381,7 @@ class MultiprocessCamera(object):
         self.project_name = os.environ.get("PROJECT_NAME", "")
         self.address = address
         self.set_params = set_params
-        self.butcher_knife: "RLock" = mp.RLock()
+        self.butcher_knife = BetterRLock()
         # self.store_queue: mp.Queue = mp.Queue(15)
         self.store_queue: FastQueue = FastQueue(
             15, name="camera_store_queue")
@@ -594,7 +595,9 @@ class MultiprocessCamera(object):
 
     @time_cost_log
     def _init_stream(self) -> cv2.VideoCapture:
+        # logging.info(f"[camera-inside] getting butcher_knife")
         with self.butcher_knife:
+            # logging.info(f"[camera-inside] got butcher_knife")
             logging.info(f"init stream for {self.address}")
             if CameraAddressUtil.is_usb_camera(self.address):
                 CameraAddressUtil.force_release_usb_camera(self.address)
@@ -776,7 +779,8 @@ class MultiprocessCamera(object):
 
     def reading_frames(self):
         try:
-            print(f"camera: {self.address} pid: {os.getpid()}")
+            logging.info(f"[camera-inside] starting view worker: {self.address}"
+                         f" pid: {os.getpid()}")
             self.stream: cv2.VideoCapture = self._init_stream()
             setproctitle.setproctitle(f"{self.project_name}-Camera")
 
@@ -930,10 +934,13 @@ class MultiprocessCamera(object):
         # camera butcher_knife not release by other process, probably was view
         # worker, blocking at read frame or something else using pyav,
         # which is all handled within self.butcher_knife, so force release it
-        if not self.butcher_knife.acquire(timeout=timeout):
+        try:
+            if not self.butcher_knife.acquire(timeout=timeout):
+                self.butcher_knife.release()
+                logging.warning("[camera] camera butcher_knife not release by "
+                                "other process, so force release it")
+        finally:
             self.butcher_knife.release()
-            logging.warning("[camera] camera butcher_knife not release by "
-                            "other process, so force release it")
 
         with self.butcher_knife:
             logging.info(f"[camera] killing view_worker: "
