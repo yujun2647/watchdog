@@ -950,6 +950,8 @@ class MultiprocessCamera(object):
             remain_timeout = int(max(timeout - (time.time() - start), 3))
             ProcessController.kill_process(self.view_worker.pid,
                                            timeout=remain_timeout)
+            # 关闭进程的 pipe 文件
+            self.view_worker._popen.close()
             logging.info(f"[camera] killed view_worker: {self.view_worker.pid}")
 
         self.start_view_worker()

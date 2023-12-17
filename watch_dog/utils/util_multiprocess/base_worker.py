@@ -329,6 +329,8 @@ class BaseWorker(ABC):
                 #  之后的get 则都会报 Empty 异常，即使 qsize() > 0 的，此时队列已经损坏不可用了
                 self._clear_all_output_queues()
                 ProcessController.kill_process(self._worker.pid)
+                # 关闭进程的 pipe 文件
+                self._worker._popen.close()
             logging.info(f"[{self.worker_name}][Killed worker]: "
                          f"{self._worker.pid}")
         worker_pid_before_restart = self.worker_pid
