@@ -928,6 +928,7 @@ class MultiprocessCamera(object):
             self.audio_worker = self._init_audio_worker()
 
     def restart(self, timeout=60):
+        start = time.time()
         logging.info(f"[camera] killing view_worker: "
                      f"{self.view_worker.pid}")
         # force to release it
@@ -946,7 +947,9 @@ class MultiprocessCamera(object):
             logging.info(f"[camera] killing view_worker: "
                          f"{self.view_worker.pid} [butcher_knife gained]")
             clear_queue_cache(self.store_queue, "camera_store_queue")
-            ProcessController.kill_process(self.view_worker.pid)
+            remain_timeout = int(max(timeout - (time.time() - start), 3))
+            ProcessController.kill_process(self.view_worker.pid,
+                                           timeout=remain_timeout)
             logging.info(f"[camera] killed view_worker: {self.view_worker.pid}")
 
         self.start_view_worker()
