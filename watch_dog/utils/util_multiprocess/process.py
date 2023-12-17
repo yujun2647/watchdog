@@ -42,10 +42,7 @@ class ProcessController(object):
 
     @classmethod
     @ignore_assigned_error((FileNotFoundError, NoSuchProcess))
-    def kill_sub_processes(cls, pid=None, excludes=None):
-        def _wait(_pid):
-            os.waitpid(_pid, 0)
-
+    def kill_sub_processes(cls, pid=None, excludes=None, timeout=0):
         if excludes is None:
             excludes = []
         pid = pid if pid is not None else os.getpid()
@@ -62,33 +59,53 @@ class ProcessController(object):
             try:
                 # 手动方案
                 os.kill(child.pid, signal.SIGINT)
-                t = threading.Thread(target=_wait, args=(child.pid,))
-                try:
-                    t.start()
-                    t.join(timeout=1)
-                finally:
-                    if t.is_alive():
-                        os.kill(child.pid, signal.SIGKILL)
-                # 代理方案
-                # child.terminate()
-                # child.wait(timeout=1)
+                cls.waitpid(child.pid, timeout=timeout)
                 print(f"\t[killed sub process] - {child.pid},"
                       f" signal: {signal.SIGINT}")
             except Exception as exp:
                 print(f"[Kill process failed] error {exp}")
 
     @classmethod
+    def waitpid(cls, pid, timeout=0, sent_signal="SIGINT"):
+        start = time.time()
+        if timeout <= 0:
+            return os.waitpid(pid, 0)
+
+        for i in range(int(timeout / 0.3)):
+            result = os.waitpid(pid, os.WNOHANG)
+            if result == (0, 0):
+                time.sleep(0.3)
+                continue
+            logging.info(f"[ProcessController] process {pid} stop/kill success "
+                         f"after sent signal {sent_signal}")
+
+            return result
+        if sent_signal == "SIGKILL":
+            logging.error(f"[ProcessController] process still hang {pid}, "
+                          f"after sent SIGKILL signal !!!")
+            return
+
+        logging.info(f"[ProcessController] process {pid} hang in {timeout} "
+                     f"seconds after send {sent_signal} signal, force to kill, "
+                     f"send SIGKILL signal")
+        os.kill(pid, signal.SIGKILL)
+        cls.waitpid(pid, timeout=int(max(timeout - (time.time() - start), 3)),
+                    sent_signal="SIGKILL")
+
+    @classmethod
     @ignore_assigned_error((FileNotFoundError, NoSuchProcess))
-    def kill_process(cls, pid=None):
+    def kill_process(cls, pid=None, timeout=0):
+        start = time.time()
         logging.info(f"[ProcessController] killing process: {pid}")
         pid = pid if pid is not None else os.getpid()
         this_process = psutil.Process(pid)
-        cls.kill_sub_processes(this_process.pid)
+        cls.kill_sub_processes(this_process.pid, timeout=timeout)
         time.sleep(0.1)
         os.kill(this_process.pid, signal.SIGINT)
         logging.info(f"[ProcessController] sent signal.SIGINT to {pid}")
         logging.info(f"[ProcessController] waiting {pid}")
-        os.waitpid(this_process.pid, 0)
+        cls.waitpid(pid, timeout=int(max(timeout - (time.time() - start), 3)))
+
         logging.info(f"[ProcessController] wait end {pid}")
         logging.info(f"[ProcessController] killed process: {pid}")
         # this_process.terminate()
