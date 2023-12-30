@@ -75,24 +75,20 @@ def raise_error_if_not_exists(filepaths):
 TEMP_FOLDER = "temp"
 
 
-def get_temp_path():
-    return join_ensure_exist(PathConfig.PROJECT_PATH, TEMP_FOLDER)
-
-
 def get_project_path():
     return PathConfig.PROJECT_PATH
 
 
-def get_temp_process_dir(process: str):
-    return join_ensure_exist(PathConfig.PROJECT_PATH, TEMP_FOLDER, process)
+def get_process_dir(process: str):
+    return join_ensure_exist(PathConfig.PROJECT_CACHE_PATH, process)
 
 
-def get_temp_process_filepath(process: str, filename: str):
-    return join_ensure_exist(get_temp_process_dir(process), filename)
+def get_process_filepath(process: str, filename: str):
+    return join_ensure_exist(get_process_dir(process), filename)
 
 
 def get_log_path(_file_):
-    folder_path = get_temp_process_dir("scripts_logs")
+    folder_path = get_process_dir("logs")
     file = os.path.basename(_file_)
     log_filename = f"{file[:file.rindex('.')]}.log"
     return os.path.join(folder_path, log_filename)

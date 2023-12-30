@@ -74,7 +74,11 @@ CURRENT_DIR = os.path.dirname(__file__)
 
 class PathConfig(object):
     PROJECT_PATH = os.path.dirname(CURRENT_DIR)
-    CACHE_DATAS_PATH = "/home/watch_dog/video_cache"
+
+    HOME_PATH = os.path.expanduser('~')
+    PROJECT_NAME = "watchdog"
+    PROJECT_CACHE_PATH = os.path.join(HOME_PATH, f".{PROJECT_NAME}")
+    CACHE_DATAS_PATH = os.path.join(PROJECT_CACHE_PATH, "video_cache")
 
 
 class WorkerEnableState(Base):

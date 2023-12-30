@@ -52,8 +52,9 @@ parser.add_argument(
 )
 parser.add_argument(
     "-cache-path",
-    help="the path store the videos",
-    default="/home/watch_dog/video_cache",
+    help="the path store the videos, default cache_path is "
+         "{$HOME}/.watchdog/video_cache",
+    default="",
     type=str
 )
 
@@ -87,7 +88,8 @@ def main():
     project_name = os.environ.get("PROJECT_NAME", "")
     setproctitle.setproctitle(f"{project_name}-MainProcess-{os.getpid()}")
     camera_address = args.address
-    PathConfig.CACHE_DATAS_PATH = args.cache_path
+    if args.cache_path:
+        PathConfig.CACHE_DATAS_PATH = args.cache_path
     CameraConfig.REST_FPS.value = args.rest_fps
     CameraConfig.ACTIVE_FPS.value = args.active_fps
     CameraConfig.CAR_ALART_SECS.value = args.car_alart_secs
