@@ -74,11 +74,15 @@ walkerjun@walkerjun:~$ watchdog -V
 0.0.15                        
 ```
 
-* 启动 [以本机摄像头为例]
-
-```
-watchdog /dev/video0 
-```
+* 启动 
+  * 机器摄像头
+  ```
+  watchdog /dev/video0 
+  ```
+  * 网络摄像头
+  ```
+  watchdog rtsp://......
+  ```
 
 * 浏览器查看 [默认 8000 端口]
   [http://localhost:8000](http://localhost:8000)
