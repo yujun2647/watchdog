@@ -14,7 +14,7 @@ After=network-online.target
 
 [Service]
 Type=simple
-ExecStart=watchdog -active-fps=6 -car-alart-secs=120 rtsp://admin:huang7758258@192.168.3.230
+ExecStart=watchdog -active-fps=6 -car-alart-secs=120 ADDRESS
 Restart=always
 
 [Install]
