@@ -2,7 +2,7 @@
 import os
 
 from setuptools import setup
-from watch_dog import __version__
+from watchdog import __version__
 
 with open("README.md", "r") as fp:
     README = fp.read()
@@ -48,11 +48,11 @@ def walk_package(package):
     return packages, package_data
 
 
-all_packages, all_package_data = walk_package("watch_dog")
+all_packages, all_package_data = walk_package("watchdog")
 INSTALL_REQUIRES = _get_requires("requirements.txt")
 
 setup(
-    name="watch_dog",
+    name="watchdog",
     version=__version__,
     description="",
     python_requires=">=3.8",
@@ -64,7 +64,7 @@ setup(
 
     entry_points={
         "console_scripts": [
-            "watchdog=watch_dog.watch:main",
+            "watchdog=watchdog.watch:main",
         ],
     },
     packages=all_packages,
