@@ -117,7 +117,7 @@ class PersonSensor(_Sensor):
     """行人感应器"""
 
     SENSE_LABELS = [DetectLabels.PERSON, ]
-    NOT_SENSE_SEC_TH = 1.5
+    NOT_SENSE_SEC_TH = 3
 
 
 class CarSensor(_Sensor):
