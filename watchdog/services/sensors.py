@@ -128,4 +128,6 @@ class CarSensor(_Sensor):
     """
     SENSE_LABELS = [DetectLabels.CAR, DetectLabels.TRUCK, DetectLabels.BUS,
                     DetectLabels.BOAT, DetectLabels.TRAIN]
+    SENSE_SEC_TH = 2
+
     MAX_AREA = 0.5
