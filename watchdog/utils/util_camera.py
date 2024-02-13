@@ -707,7 +707,10 @@ class MultiprocessCamera(object):
         setting_params = CameraParams.from_opencv_params(self.set_params)
         if params.size_equal(setting_params):
             logging.info("[camera] new params is detected, send adjust"
-                         " success sig")
+                         f" success sig, self.set_params: {self.set_params}, \n"
+                         f"self.video_fps: {self.video_fps}\n"
+                         f"self.video_width: {self.video_width}\n"
+                         f"self.video_height: {self.video_height}")
             self._camera_params_adjust_rsp.put(1)
             self._camera_params_adjust_timer.disable()
 
