@@ -2,6 +2,7 @@ import os
 import json
 import time
 import logging
+import traceback
 from typing import *
 from queue import Empty
 from threading import Event as TEvent
@@ -396,7 +397,7 @@ class MultiprocessCamera(object):
         # 调节摄像头参数完毕 rsp
         self._camera_params_adjust_rsp = mp.Queue(10)
         # 调节摄像头参数的计时器，超过这个时间就放弃
-        self._camera_params_adjust_timer = Timer(timeout=2, enable=False)
+        self._camera_params_adjust_timer = Timer(timeout=5, enable=False)
 
         self.connect_flag = mp.Value("d", 0)
         self._connect_confirm_timer_task = Timer(timeout=5, enable=False)
@@ -639,12 +640,15 @@ class MultiprocessCamera(object):
         return False
 
     def adjust_camera_params(self, new_params: dict):
+        clear_queue(self._camera_params_adjust_rsp,
+                    queue_msg="self._camera_params_adjust_rsp")
         self._camera_params_adjust_signal.put(new_params)
         try:
-            self._camera_params_adjust_rsp.get(timeout=3)
+            self._camera_params_adjust_rsp.get(timeout=10)
             return True
         except Empty:
-            logging.warning("[camera] no adjust success sig found")
+            logging.error(f"[camera] no adjust success sig found \n "
+                          f"{traceback.format_exc()}")
             return False
         finally:
             camera_param = self.get_camera_params()
@@ -689,6 +693,9 @@ class MultiprocessCamera(object):
                 new_params = self._camera_params_adjust_signal.get(timeout=1)
                 now_params = self.get_camera_params().opencv_params()
                 if new_params != now_params:
+                    logging.info(f"[camera] camera_params_adjust_signal:"
+                                 f" {new_params}, new_params != now_params:"
+                                 f" {new_params != now_params}")
                     self._camera_params_adjust_timer.reset_timer()
                     self.set_params.update(new_params)
                     self._init_camera_params(self.stream)

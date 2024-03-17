@@ -108,7 +108,10 @@ class WdQueueConsole(QueueConsole):
             self._cam_adj_value.value += 1
             logging.info(
                 f"[camera adjust][active camera][{tag}]: "
-                f"self._cam_adj_value.value: {self._cam_adj_value.value}")
+                f"self._cam_adj_value.value: {self._cam_adj_value.value}, "
+                f"request adjust fsp: {CameraConfig.ACTIVE_FPS.value}, "
+                f"(only execute adjust when self._cam_adj_value.value == 1, "
+                f"prevent multi adjust)")
             if self._cam_adj_value.value == 1:
                 self.camera.adjust_camera_fps(CameraConfig.ACTIVE_FPS.value)
 
@@ -117,7 +120,10 @@ class WdQueueConsole(QueueConsole):
             self._cam_adj_value.value -= 1
             logging.info(
                 f"[camera adjust][rest camera][{tag}]: "
-                f"self._cam_adj_value.value: {self._cam_adj_value.value}")
+                f"self._cam_adj_value.value: {self._cam_adj_value.value}, "
+                f"request adjust fsp: {CameraConfig.REST_FPS.value}, "
+                f"(only execute adjust when self._cam_adj_value.value == 0, "
+                f"prevent multi adjust)")
             if self._cam_adj_value.value == 0:
                 self.camera.adjust_camera_fps(CameraConfig.REST_FPS.value)
 
@@ -129,10 +135,16 @@ class WdQueueConsole(QueueConsole):
             self.camera_restart_sig.set()
 
     def start_vid_record(self, tag):
+        """
+            发送开始信号给录制器, 如果录制已开始, 则录制器会根据规则, 增加录制时间
+        """
         print("start recording")
         self.recorder_req_queue.put(VidRecStartReq(tag=tag))
 
     def stop_vid_record(self):
+        """
+            发送停止信号给录制器, 如果录制时间还未结束, 录制器会忽略这个信号
+        """
         print("end record")
         self.recorder_req_queue.put(WorkerEndReq())
 
