@@ -129,35 +129,13 @@ class ResourceTracker(object):
         try:
             Thread(target=_track_register, daemon=True).start()
             _track_unregister()
-        except KeyboardInterrupt:
-            _clear_unregisters_at_exit(0)
         finally:
             _clear_unregisters_at_exit(1)
             print("resource tracker exit !!!")
 
 
-tracker = mp.Process(target=ResourceTracker.keep_tracking)
+tracker = mp.Process(target=ResourceTracker.keep_tracking, daemon=True)
 tracker.start()
-
-
-def _ensure_kill_tracker_at_exit():
-    os.kill(tracker.pid, signal.SIGINT)
-    ResourceTracker.EXIT_EVENT.set()
-
-    def _wait(pid):
-        os.waitpid(pid, 0)
-
-    t = threading.Thread(target=_wait, args=(tracker.pid,))
-    try:
-        t.start()
-        t.join(timeout=1)
-    finally:
-        if t.is_alive():
-            os.kill(tracker.pid, signal.SIGKILL)
-
-
-ProcessController.register_kill_all_subprocess_at_exit()
-atexit.register(_ensure_kill_tracker_at_exit)
 
 if __name__ == "__main__":
     def test():

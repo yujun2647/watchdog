@@ -42,7 +42,7 @@ class ProcessController(object):
 
     @classmethod
     @ignore_assigned_error((FileNotFoundError, NoSuchProcess))
-    def kill_sub_processes(cls, pid=None, excludes=None, timeout=0):
+    def kill_sub_processes(cls, pid=None, excludes=None, timeout=0.5):
         if excludes is None:
             excludes = []
         pid = pid if pid is not None else os.getpid()

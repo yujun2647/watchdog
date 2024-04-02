@@ -7,7 +7,7 @@ from watchdog.server.custom_server import EnhanceThreadedWSGIServer
 from watchdog.configs.constants import CameraConfig
 
 from watchdog.utils.util_camera import FrameBox
-from watchdog.utils.util_thread import new_thread
+from watchdog.utils.util_thread import new_daemon_thread
 from watchdog.services.workers.marker import Marker
 from watchdog.services.workers.video_recorder import VidRecH264
 from watchdog.services.wd_queue_console import WdQueueConsole
@@ -70,7 +70,7 @@ class WorkShop(object):
         self.preloading_live_frame2()
         self.monitor_camera_restart_sig()
 
-    @new_thread
+    @new_daemon_thread
     def monitor_camera_restart_sig(self):
         while True:
             if self.q_console.camera_restart_sig.wait(timeout=5):
@@ -87,7 +87,7 @@ class WorkShop(object):
             raise Empty
         return self._live_frame
 
-    @new_thread
+    @new_daemon_thread
     def preloading_live_frame2(self):
         render_frame_queue = self.q_console.render_frame_queue
 
