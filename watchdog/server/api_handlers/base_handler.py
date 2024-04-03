@@ -1,14 +1,16 @@
-import json
+import logging
 from typing import *
 from abc import abstractmethod
 
 from urllib import parse
-from flask import request, make_response
 from flask.views import MethodView
+from flask import request, make_response
 
 from watchdog.utils.util_request import get_request_data
 from watchdog.utils.util_router import Route, HttpRouteUrl
 from watchdog.utils.util_path import join_ensure_exist, get_extensions
+
+logger = logging.getLogger(__name__)
 
 
 class _ArgDefaultMarker:
@@ -20,20 +22,32 @@ _ARG_DEFAULT = _ArgDefaultMarker()
 
 # noinspection PyBroadException
 class BaseHandler(MethodView):
+    provide_automatic_options = False
     # 上传限制的文件扩展名
     UPLOAD_ALLOW_EXTENSIONS = []
 
     def __init__(self, *args, **kwargs):
         self.request = request
-        self.request_data = get_request_data()
+        self._request_data = None
         self.upload_allow_extensions = {ext.lower(): 1 for ext
                                         in self.UPLOAD_ALLOW_EXTENSIONS}
 
-    @abstractmethod
+    @property
+    def request_data(self):
+        if self._request_data is None:
+            self._request_data = get_request_data()
+        return self._request_data
+
     def get(self, *args, **kwargs):
         pass
 
     def post(self):
+        pass
+
+    def options(self):
+        pass
+
+    def head(self):
         pass
 
     def prepare(self):
@@ -50,7 +64,11 @@ class BaseHandler(MethodView):
     def make_ok_response(cls, result):
         rsp = cls.get_response(data=result)
         rsp.headers['Content-Type'] = 'application/json'
-        rsp.headers['Access-Control-Allow-Origin'] = "*"  # 设置允许跨域
+        rsp.headers["Content-Type"] = "application/json"
+        rsp.headers["Access-Control-Allow-Origin"] = "*"  # 设置允许跨域
+        rsp.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
+        rsp.headers["Access-Control-Allow-Headers"] = (
+            "X-Requested-With,Content-Type,Authorization")
         return rsp
 
     def dispatch_request(self, *args, **kwargs):
@@ -68,7 +86,6 @@ class BaseHandler(MethodView):
         pass
 
     def handle_exception(self, exp) -> None:
-        # business-logger-web 已经代理了异常处理，这里不用再处理了
         raise exp
 
     def get_header(self, name: str, default=None):

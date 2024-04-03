@@ -13,9 +13,11 @@ from flask import make_response, Response, render_template, send_file
 from watchdog.utils.util_router import Route
 from watchdog.utils.util_camera import FrameBox
 from watchdog.configs.constants import PathConfig
-from watchdog.services.workshop import WorkShop
 from watchdog.services.path_service import get_cache_videos
 from watchdog.server.api_handlers.base_handler import BaseHandler
+
+if TYPE_CHECKING:
+    from watchdog.services.workshop import WorkShop
 
 
 @Route("/")
@@ -94,16 +96,16 @@ class WatchDogHandler(WatchDogIndex):
 
 @Route("/echo")
 class WatchCameraHandler(BaseHandler):
-    WORKSHOP_MAP: Dict[str, WorkShop] = {}
+    WORKSHOP_MAP: Dict[str, "WorkShop"] = {}
 
     @classmethod
-    def load_workshop(cls, camera_address: [int, str], workshop: WorkShop):
+    def load_workshop(cls, camera_address: [int, str], workshop: "WorkShop"):
         if not isinstance(camera_address, str):
             camera_address = str(camera_address)
         cls.WORKSHOP_MAP[camera_address] = workshop
 
     @classmethod
-    def get_workshop(cls, camera_address=None) -> WorkShop:
+    def get_workshop(cls, camera_address=None) -> "WorkShop":
         if camera_address is None:
             for _, value in cls.WORKSHOP_MAP.items():
                 return value
@@ -140,7 +142,7 @@ class WatchStream(WatchCameraHandler):
     def get_byte_frame2(self):
         try:
             if self.last is None:
-                frame_box = self.work_shop.live_frame
+                frame_box = self.work_shop.web_server.live_frame
             else:
                 if not self.last.next_come.wait(timeout=5):
                     raise Empty

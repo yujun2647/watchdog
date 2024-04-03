@@ -6,9 +6,11 @@ from threading import Event as TEvent
 from watchdog.server.custom_server import EnhanceThreadedWSGIServer
 from watchdog.configs.constants import CameraConfig
 
+from watchdog.server.api_handlers.watch_handler import WatchCameraHandler
 from watchdog.utils.util_camera import FrameBox
 from watchdog.utils.util_thread import new_daemon_thread
 from watchdog.services.workers.marker import Marker
+from watchdog.services.workers.web_server import WebServer
 from watchdog.services.workers.video_recorder import VidRecH264
 from watchdog.services.wd_queue_console import WdQueueConsole
 from watchdog.services.workers.monitor import Monitor
@@ -36,7 +38,7 @@ class TimeTQueue(TQueue):
 class WorkShop(object):
 
     def __init__(self, camera_address, video_width=None,
-                 video_height=None):
+                 video_height=None, server_port=8000):
         self.q_console = WdQueueConsole.init_default(
             camera_address=camera_address,
             fps=CameraConfig.REST_FPS.value, detect_worker_num=1,
@@ -51,24 +53,26 @@ class WorkShop(object):
         self.vid_recorder = VidRecH264(
             q_console=self.q_console,
             work_req_queue=self.q_console.recorder_req_queue)
+        self.web_server = WebServer(q_console=self.q_console)
 
         self.marker.send_start_work_req()
         self.c_detector.send_start_work_req()
         self.monitor.send_start_work_req()
         self.frame_dst.send_start_work_req()
+        self.web_server.send_start_work_req(req_msg=dict(port=server_port))
 
+        self._live_frame: Optional[FrameBox] = None
+        self._live_frame_come = TEvent()
+
+        self.monitor_camera_restart_sig()
+
+        WatchCameraHandler.load_workshop(camera_address, self)
         self.marker.start_work_in_subprocess()
         self.monitor.start_work_in_subprocess()
         self.c_detector.start_work_in_subprocess()
         self.frame_dst.start_work_in_subprocess()
         self.vid_recorder.start_work_in_subprocess()
-
-        self._live_frame: Optional[FrameBox] = None
-        self._live_frame_come = TEvent()
-
-        # self.preloading_live_frame()
-        self.preloading_live_frame2()
-        self.monitor_camera_restart_sig()
+        self.web_server.start_work_in_subprocess(daemon=True)
 
     @new_daemon_thread
     def monitor_camera_restart_sig(self):

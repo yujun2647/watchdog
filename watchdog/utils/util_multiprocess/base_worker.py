@@ -95,9 +95,10 @@ class BaseWorker(ABC):
         # 用于共享至别的进程
         self._working_task_id = MultiObject("")
 
-    def start_work_in_subprocess(self) -> mp.Process:
+    def start_work_in_subprocess(self, daemon=False) -> mp.Process:
         self._worker = mp.Process(
-            target=self.start_work_loop
+            target=self.start_work_loop,
+            daemon=daemon
         )
         self._worker.start()
         return self._worker

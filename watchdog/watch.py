@@ -1,5 +1,7 @@
 import os
 import argparse
+import time
+
 from watchdog import __version__
 
 parser = argparse.ArgumentParser()
@@ -32,8 +34,8 @@ parser.add_argument(
 parser.add_argument(
     "-active-fps",
     help="the fps when object detected, default active_fps is "
-         "os.cup_count() * 2",
-    default=os.cpu_count() * 2,
+         "os.cup_count()",
+    default=os.cpu_count(),
     type=int
 )
 
@@ -67,8 +69,6 @@ parser.add_argument(
 
 args = parser.parse_args()
 
-import logging
-
 import setproctitle
 
 from watchdog.configs.constants import CameraConfig, PathConfig
@@ -78,9 +78,6 @@ from watchdog.server.monkey_patches import MonkeyPatches
 
 MonkeyPatches.patch_all(wsgi_server=True)
 from watchdog.server.api_handlers import *
-from watchdog.server.api_handlers.watch_handler import WatchCameraHandler
-from watchdog.server.custom_server import CustomFlask
-from watchdog.utils.util_router import load_routes_to_flask
 from watchdog.services.workshop import WorkShop
 
 
@@ -96,21 +93,10 @@ def main():
     CameraConfig.CACHE_DAYS.value = args.cache_days
     port = args.port
     set_scripts_logging(__file__)
-
-    app = CustomFlask(__name__, template_folder="templates",
-                      static_folder="static")
-    load_routes_to_flask(app)
     ws = WorkShop(camera_address, video_width=args.width,
-                  video_height=args.height)
-    WatchCameraHandler.load_workshop(camera_address, ws)
+                  video_height=args.height, server_port=port)
 
-    logging.info(f"""
-    --------------------------------------------------------------------------
-                Start WatchDog, view stream:
-                http://0.0.0.0:{port}/stream
-    --------------------------------------------------------------------------
-    """)
-    app.run(host="0.0.0.0", port=port)
+    time.sleep(1000) # temp
 
 
 if __name__ == "__main__":
