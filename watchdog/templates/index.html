@@ -136,7 +136,7 @@
                     success: function (result) {
                         for (let video of result) {
                             records_element.append(
-                                `<a id='video_link' href="javascript:void(0)" onclick="playVideo(this, '/check_video/${video}')">${video}</a><br><br>`)
+                                `<a id='video_link' href="javascript:void(0)" onclick="playVideo(this, 'check_video/${video}')">${video}</a><br><br>`)
                         }
 
                     },
