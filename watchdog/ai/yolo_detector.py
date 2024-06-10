@@ -29,7 +29,11 @@ class YoloDetector(object):
         self.config_path = (config_path if config_path
                             else self.DEFAULT_CONFIG_PATH)
         self.class_path = class_path if class_path else self.DEFAULT_CLASS_PATH
-        self.net = cv2.dnn_DetectionModel(self.model_path, self.config_path)
+        net_detector = cv2.dnn.readNet(self.model_path, self.config_path, "darknet")
+        net_detector.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
+        net_detector.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
+        self.net = cv2.dnn_DetectionModel(net_detector)
+        #self.net = cv2.dnn_DetectionModel(self.model_path, self.config_path)
         self.net.setInputSize(320, 320)
         self.net.setInputScale(1.0 / 127.5)
         self.net.setInputMean((127.5, 127.5, 127.5))
